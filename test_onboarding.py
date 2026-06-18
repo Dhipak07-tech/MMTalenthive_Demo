@@ -41,18 +41,21 @@ def run_test():
     # 2. Invoke Onboarding Orchestrator Endpoint
     print("\n[Step 2] Sending onboarding request to /api/v1/onboarding...")
     
+    import random
+    emp_suffix = str(random.randint(1000, 9999))
+
     # Construct complete payload representing all 8 wizard steps
     onboarding_payload = {
         "firstName": "Alex",
         "lastName": "Rivera",
-        "workEmail": "alex.rivera@managemyopz.com",
-        "personalEmail": "alex.rivera.personal@gmail.com",
+        "workEmail": f"alex.rivera.{emp_suffix}@managemyopz.com",
+        "personalEmail": f"alex.rivera.personal.{emp_suffix}@gmail.com",
         "phone": "9876543210",
         "emergencyPhone": "9876543211",
         "gender": "MALE",
         "dateOfBirth": "1992-04-15",
         
-        "employeeCode": "EMP-009",
+        "employeeCode": f"EMP-{emp_suffix}",
         "dateOfJoining": "2026-07-01",
         "department": "Engineering",
         "designation": "Staff Software Engineer",
@@ -137,7 +140,7 @@ def run_test():
             # Check if our created employee is in the registry
             found = False
             for emp in employees:
-                if emp.get("employeeCode") == "EMP-009":
+                if emp.get("employeeCode") == f"EMP-{emp_suffix}":
                     print(f"\n[SUCCESS] Found newly onboarded employee twin in the registry!")
                     print(f"  Name: {emp.get('firstName')} {emp.get('lastName')}")
                     print(f"  Code: {emp.get('employeeCode')}")

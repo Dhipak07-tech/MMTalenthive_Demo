@@ -3,7 +3,7 @@ package com.managemyopz.twin.service;
 import com.managemyopz.shared.entity.TenantContext;
 import com.managemyopz.shared.event.EventPublisher;
 import com.managemyopz.shared.exception.ResourceNotFoundException;
-import com.managemyopz.twin.entity.EmployeeTwin;
+import com.managemyopz.twin.entity.*;
 import com.managemyopz.twin.event.EmployeeCreatedEvent;
 import com.managemyopz.twin.event.EmployeePromotedEvent;
 import com.managemyopz.twin.event.EmployeeTerminatedEvent;
@@ -120,6 +120,46 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
         existing.setBankAccountNumber(details.getBankAccountNumber());
         existing.setBankIfsc(details.getBankIfsc());
         existing.setBankBranch(details.getBankBranch());
+
+        // Sync Skills list
+        if (details.getSkills() != null) {
+            existing.getSkills().clear();
+            for (EmployeeSkill s : details.getSkills()) {
+                s.setEmployeeTwin(existing);
+                s.setTenantId(existing.getTenantId());
+                existing.getSkills().add(s);
+            }
+        }
+
+        // Sync Certifications list
+        if (details.getCertifications() != null) {
+            existing.getCertifications().clear();
+            for (EmployeeCertification c : details.getCertifications()) {
+                c.setEmployeeTwin(existing);
+                c.setTenantId(existing.getTenantId());
+                existing.getCertifications().add(c);
+            }
+        }
+
+        // Sync Documents list
+        if (details.getDocuments() != null) {
+            existing.getDocuments().clear();
+            for (EmployeeDocument d : details.getDocuments()) {
+                d.setEmployeeTwin(existing);
+                d.setTenantId(existing.getTenantId());
+                existing.getDocuments().add(d);
+            }
+        }
+
+        // Sync Relationships list
+        if (details.getRelationships() != null) {
+            existing.getRelationships().clear();
+            for (EmployeeRelationship r : details.getRelationships()) {
+                r.setEmployeeTwin(existing);
+                r.setTenantId(existing.getTenantId());
+                existing.getRelationships().add(r);
+            }
+        }
         
         return repository.save(existing);
     }

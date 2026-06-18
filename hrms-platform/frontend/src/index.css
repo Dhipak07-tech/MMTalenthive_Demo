@@ -74,22 +74,11 @@
   }
 }
 
-/* ── Dark Mode & Transition Effects ─────────────────── */
-
-body {
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* ── Dark Mode ─────────────────────────────────────── */
 
 .dark body {
   background-color: var(--color-surface-950);
   color: var(--color-surface-100);
-}
-
-/* Smooth theme transition for background, borders, and text colors */
-*, *::before, *::after {
-  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 300ms;
 }
 
 /* ── Animations ─────────────────────────────────────── */
