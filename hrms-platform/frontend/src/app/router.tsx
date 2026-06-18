@@ -74,9 +74,9 @@ export const router = createBrowserRouter([
         path: 'onboarding/new',
         element: (
           <RoleGuard minRole="ROLE_ADMIN" fallback={<Navigate to="/403" replace />}>
-            <EmployeeOnboardingWizard 
-              onClose={() => window.history.back()} 
-              onSuccess={() => window.location.href = '/employees'} 
+            <EmployeeOnboardingWizard
+              onClose={() => window.history.back()}
+              onSuccess={() => window.location.href = '/employees'}
             />
           </RoleGuard>
         ),

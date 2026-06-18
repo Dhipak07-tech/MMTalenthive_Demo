@@ -325,4 +325,9 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
 
         return (int) Math.round(totalScore);
     }
+
+    @Override
+    public String previewNextEmployeeCode(UUID organizationId) {
+        return codeGeneratorService.previewNextEmployeeCode(organizationId);
+    }
 }

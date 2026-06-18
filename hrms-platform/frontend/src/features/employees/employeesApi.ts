@@ -160,6 +160,13 @@ export const employeesApi = platformApi.injectEndpoints({
       query: (id) => `/v1/employees/${id}/completion`,
       transformResponse: (response: any) => response.data,
     }),
+    getNextEmployeeCode: builder.query<string, string | undefined>({
+      query: (orgId) => ({
+        url: '/v1/employees/preview/next-code',
+        params: orgId ? { organizationId: orgId } : {},
+      }),
+      transformResponse: (response: any) => response.data,
+    }),
     onboardEmployee: builder.mutation<EmployeeTwin, Partial<EmployeeTwin>>({
       query: (body) => ({
         url: '/v1/onboarding',
@@ -182,5 +189,6 @@ export const {
   useChangeManagerMutation,
   useTerminateEmployeeMutation,
   useGetCompletionScoreQuery,
+  useGetNextEmployeeCodeQuery,
   useOnboardEmployeeMutation,
 } = employeesApi;

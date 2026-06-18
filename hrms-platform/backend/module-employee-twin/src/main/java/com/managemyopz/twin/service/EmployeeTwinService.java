@@ -26,4 +26,6 @@ public interface EmployeeTwinService {
     List<EmployeeTwin> getAllActive();
 
     int calculateProfileCompletion(UUID id);
+
+    String previewNextEmployeeCode(UUID organizationId);
 }

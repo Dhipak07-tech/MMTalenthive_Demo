@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { computeValidationSummary, STEP_VALIDATORS, MANDATORY_STEPS, type OnboardingFormData, type StepStatus } from './onboardingValidation';
-import { useOnboardEmployeeMutation, useGetEmployeesQuery } from './employeesApi';
+import { computeValidationSummary, type OnboardingFormData, type StepStatus } from './onboardingValidation';
+import { useOnboardEmployeeMutation, useGetEmployeesQuery, useGetNextEmployeeCodeQuery } from './employeesApi';
 import { 
   useGetOrganizationsQuery, 
   useGetBusinessUnitsQuery, 
@@ -47,6 +47,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   const [managerId, setManagerId] = useState('');
   const [workMode, setWorkMode] = useState('HYBRID');
   const [designation, setDesignation] = useState('');
+  const [employmentType, setEmploymentType] = useState('');
 
   // ── Step 3: Compliance ──────────────────────
   const [panNumber, setPanNumber] = useState('');
@@ -88,6 +89,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   const { data: grades } = useGetGradesQuery(selectedOrg, { skip: !selectedOrg });
   const { data: bands } = useGetBandsQuery(selectedOrg, { skip: !selectedOrg });
   const { data: existingEmployees } = useGetEmployeesQuery();
+  const { data: nextEmployeeCode } = useGetNextEmployeeCodeQuery(selectedOrg, { skip: !selectedOrg });
 
   const [onboardEmployee, { isLoading }] = useOnboardEmployeeMutation();
 
@@ -148,19 +150,19 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   const formData: OnboardingFormData = useMemo(() => ({
     firstName, lastName, workEmail, personalEmail, workPhone, personalPhone, gender, dateOfBirth,
     dateOfJoining, selectedOrg, selectedBU, selectedDiv, selectedDept, selectedLoc, selectedGrade, selectedBand,
-    managerId, workMode, designation,
+    managerId, workMode, designation, employmentType,
     panNumber, aadhaarNumber, uanNumber, esicNumber,
     bankName, bankAccountNumber, bankIfsc,
     skillsList, certificationsList, documentsList,
     buddyId, mentorId, hrbpId,
   }), [firstName, lastName, workEmail, personalEmail, workPhone, personalPhone, gender, dateOfBirth,
     dateOfJoining, selectedOrg, selectedBU, selectedDiv, selectedDept, selectedLoc, selectedGrade, selectedBand,
-    managerId, workMode, designation, panNumber, aadhaarNumber, uanNumber, esicNumber,
+    managerId, workMode, designation, employmentType, panNumber, aadhaarNumber, uanNumber, esicNumber,
     bankName, bankAccountNumber, bankIfsc, skillsList, certificationsList, documentsList,
     buddyId, mentorId, hrbpId]);
 
   const validationSummary = useMemo(() => computeValidationSummary(formData), [formData]);
-  const { canSubmit, completionPercentage: percentage, missingSections, stepResults } = validationSummary;
+  const { canSubmit, completionPercentage: percentage, missingSections, optionalMissing, stepResults } = validationSummary;
 
   const getStepStatus = (stepNr: number): StepStatus => {
     if (stepNr === 8) return canSubmit ? 'completed' : (percentage > 0 ? 'in_progress' : 'not_started');
@@ -553,7 +555,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Work Phone *</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Work Phone</label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -581,7 +583,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Gender *</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Gender</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <select 
@@ -598,7 +600,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Date of Birth *</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Date of Birth</label>
                     <div className="relative">
                       <input 
                         type="date" 
@@ -613,7 +615,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                 <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-3.5 flex items-center gap-2.5 mt-6">
                   <Info className="w-4 h-4 text-indigo-500 shrink-0" />
                   <span className="text-[11px] font-semibold text-slate-650 dark:text-slate-400">
-                    All fields marked with <span className="text-rose-500 font-bold">*</span> are mandatory.
+                    Only <span className="text-rose-500 font-bold">*</span> fields are required for creation. Other details can be added later via Employee 360.
                   </span>
                 </div>
 
@@ -635,7 +637,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       <input 
                         type="text" 
                         value={selectedOrg 
-                          ? `${((orgs || []).find((o: any) => o.id === selectedOrg)?.code || 'ORG').toUpperCase()}-EMP-XXXXXX`
+                          ? (nextEmployeeCode || 'Generating...')
                           : 'Select an organization first'
                         }
                         disabled
@@ -666,7 +668,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Organization Tenant</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Organization Tenant *</label>
                     <div className="relative">
                       <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <select 
@@ -734,7 +736,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Department</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Department *</label>
                     <div className="relative">
                       <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <select 
@@ -862,6 +864,29 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Employment Type *</label>
+                    <div className="relative">
+                      <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={employmentType}
+                        onChange={e => setEmploymentType(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Type</option>
+                        <option value="FULL_TIME">Full Time</option>
+                        <option value="PART_TIME">Part Time</option>
+                        <option value="CONTRACT">Contract</option>
+                        <option value="INTERN">Intern</option>
+                        <option value="CONSULTANT">Consultant</option>
+                        <option value="TEMPORARY">Temporary</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
@@ -869,12 +894,12 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
             {step === 3 && (
               <div className="space-y-4 animate-fade-in">
                 
-                <div className="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-xl border border-indigo-100/30 dark:border-indigo-900/30 flex gap-3 items-start">
-                  <ShieldCheck className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
+                <div className="bg-amber-50/30 dark:bg-amber-950/10 p-4 rounded-xl border border-amber-100/30 dark:border-amber-900/30 flex gap-3 items-start">
+                  <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-bold text-slate-805 dark:text-white text-xs">Statutory Compliance Registries</h4>
+                    <h4 className="font-bold text-slate-805 dark:text-white text-xs">Statutory Compliance Registries <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-bold uppercase ml-1">Optional</span></h4>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-normal">
-                      Input mandatory federal registry codes. Sensitive columns will be masked dynamically under advanced tenant security settings.
+                      These fields can be completed after onboarding. They contribute to your Profile Health Score and compliance tracking.
                     </p>
                   </div>
                 </div>
@@ -1278,11 +1303,11 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
                 </div>
 
-                {/* Validation Summary Card */}
+                {/* Mandatory Missing — Blocks creation */}
                 {missingSections.length > 0 && (
                   <div className="border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/10 rounded-xl p-5 space-y-3">
                     <h4 className="font-extrabold text-rose-600 dark:text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4" /> Missing Information — {missingSections.length} section{missingSections.length > 1 ? 's' : ''} incomplete
+                      <AlertTriangle className="w-4 h-4" /> Required Fields Missing — Cannot Create
                     </h4>
                     <div className="space-y-2">
                       {missingSections.map((section) => (
@@ -1304,12 +1329,43 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
                 )}
 
+                {/* Ready to Create — Green success */}
                 {canSubmit && (
-                  <div className="border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-xl p-4 flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">All mandatory sections complete</p>
-                      <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">This employee is ready to be onboarded.</p>
+                  <div className="border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Ready To Create Employee Twin</p>
+                        <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">
+                          Profile health: {percentage}% — Additional information can be added later from Employee 360 Workspace.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Profile Improvement Center — Optional items */}
+                {canSubmit && optionalMissing.length > 0 && (
+                  <div className="border border-amber-200 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/10 rounded-xl p-5 space-y-3">
+                    <h4 className="font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                      <Info className="w-4 h-4" /> Profile Improvement Center
+                    </h4>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      These items are optional. Complete them after onboarding to improve the profile health score.
+                    </p>
+                    <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
+                      {optionalMissing.slice(0, 8).map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setStep(item.stepNumber)}
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-amber-100/50 dark:hover:bg-amber-950/20 transition-colors group text-left"
+                        >
+                          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            ⚠ {item.label} <span className="text-[9px] text-slate-400 ml-1">({item.sectionLabel})</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">+{item.potentialGain}%</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1329,7 +1385,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase block font-bold">Employee Code</span>
                       <strong className="text-indigo-600 dark:text-indigo-400 font-mono">
                         {selectedOrg 
-                          ? `${((orgs || []).find((o: any) => o.id === selectedOrg)?.code || 'ORG').toUpperCase()}-EMP-XXXXXX`
+                          ? (nextEmployeeCode || 'Generating...')
                           : 'Pending — Select Org'}
                       </strong>
                     </div>
@@ -1403,17 +1459,17 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
               Continue <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
-            <button 
-              onClick={handleSubmit}
-              disabled={isLoading || !canSubmit}
-              className={`px-5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                canSubmit 
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)] disabled:opacity-50'
-                  : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-              }`}
-              title={!canSubmit ? 'Complete all mandatory sections before submitting' : ''}
-            >
-              {isLoading ? 'Onboarding...' : !canSubmit ? 'Complete All Sections' : 'Onboard Employee Twin'} <Check className="w-4 h-4" />
+              <button 
+                onClick={handleSubmit}
+                disabled={isLoading || !canSubmit}
+                className={`px-5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  canSubmit 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)] disabled:opacity-50'
+                    : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                }`}
+                title={!canSubmit ? 'Complete required Identity and Employment DNA fields' : ''}
+              >
+                {isLoading ? 'Onboarding...' : !canSubmit ? 'Complete Required Fields' : 'Onboard Employee Twin'} <Check className="w-4 h-4" />
             </button>
           )}
         </div>

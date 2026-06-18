@@ -120,7 +120,7 @@ export function PlatformLayout() {
       displayRoleName = user.role.replace('ROLE_', '').replace(/_/g, ' ');
     }
     displayName = user.name || user.email || 'User';
-    
+
     // Initials calc
     const parts = displayName.split(' ');
     let calcInitials = '';
@@ -188,7 +188,7 @@ export function PlatformLayout() {
         <div className="flex items-center h-16 px-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B0F19] shrink-0">
           <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(99,102,241,0.25)]">
             <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
-              <path d="M12 2C6.477 2 2 6.023 2 11c0 2.279 1.026 4.35 2.766 5.86L3.13 20.91A1 1 0 004.1 22c.168 0 .335-.042.489-.126l4.246-2.324A10.873 10.873 0 0012 20c5.523 0 10-4.023 10-9s-4.477-9-10-9z"/>
+              <path d="M12 2C6.477 2 2 6.023 2 11c0 2.279 1.026 4.35 2.766 5.86L3.13 20.91A1 1 0 004.1 22c.168 0 .335-.042.489-.126l4.246-2.324A10.873 10.873 0 0012 20c5.523 0 10-4.023 10-9s-4.477-9-10-9z" />
             </svg>
           </div>
           {!collapsed && (
@@ -294,7 +294,7 @@ export function PlatformLayout() {
               </div>
             )}
             {!collapsed && (
-              <button 
+              <button
                 onClick={handleLogout}
                 title="Log Out"
                 className="text-slate-405 hover:text-rose-500 transition-colors p-1.5 rounded hover:bg-slate-200/40 dark:hover:bg-slate-850"
@@ -308,7 +308,7 @@ export function PlatformLayout() {
 
       {/* ── Workspace ─────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden bg-[#F3F7FA] dark:bg-[#07090e] text-slate-900 dark:text-slate-100">
-        
+
         {/* Global Search Header */}
         <header className="h-16 bg-white dark:bg-[#0B0F19] border-b border-slate-200/80 dark:border-slate-850 flex items-center justify-between px-6 shrink-0 relative z-30 shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
           {/* Global Search */}
@@ -435,7 +435,7 @@ export function PlatformLayout() {
                 <p className="text-[10px] text-slate-400 font-semibold uppercase">Security Compliance</p>
               </div>
             </div>
-            
+
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               Your session has been inactive. To protect corporate multi-tenant data, you will be logged out automatically in{' '}
               <span className="font-mono font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">

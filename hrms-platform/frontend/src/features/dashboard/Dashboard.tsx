@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, Building2, Shield, Calendar, ArrowUpRight, 
+import {
+  Users, Building2, Shield, Calendar, ArrowUpRight,
   MapPin, Clock, Briefcase, ChevronRight, Activity, AlertCircle
 } from 'lucide-react';
 import { useGetEmployeesQuery } from '../employees/employeesApi';
@@ -96,7 +96,7 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto animate-fade-in">
-      
+
       {/* Upper Dashboard Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#0B0F19] p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div>
@@ -118,7 +118,7 @@ export function Dashboard() {
 
       {/* KPI Metrics Dashboard Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
+
         {/* Metric 1 */}
         <div className="bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 rounded-xl p-5 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all group relative overflow-hidden">
           <div className="flex justify-between items-start">
@@ -208,10 +208,10 @@ export function Dashboard() {
 
       {/* Main Analytics Breakdown Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left Side: Department & Location DNA */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Department Headcount Breakdown */}
           <div className="bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 rounded-xl p-5 shadow-sm">
             <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -238,8 +238,8 @@ export function Dashboard() {
                       <span>{dept.count} ({dept.percentage}%)</span>
                     </div>
                     <div className="h-2 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-indigo-500 rounded-full transition-all duration-500" 
+                      <div
+                        className="h-full bg-indigo-500 rounded-full transition-all duration-500"
                         style={{ width: `${dept.percentage}%` }}
                       />
                     </div>
@@ -286,13 +286,13 @@ export function Dashboard() {
 
         {/* Right Side: Employment status & Activity feed */}
         <div className="space-y-6">
-          
+
           {/* Employment status */}
           <div className="bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 rounded-xl p-5 shadow-sm">
             <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider mb-4">
               Employment Status DNA
             </h3>
-            
+
             {loadingEmployees ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => (
@@ -379,8 +379,8 @@ export function Dashboard() {
             <h3 className="text-xs font-bold text-slate-450 uppercase tracking-wider">Onboarded Employee Twins</h3>
             <p className="text-[11px] text-slate-400 mt-0.5">Previewing the latest onboarding records from the registry.</p>
           </div>
-          <button 
-            onClick={() => navigate('/employees')} 
+          <button
+            onClick={() => navigate('/employees')}
             className="flex items-center gap-1.5 text-xs text-indigo-650 dark:text-indigo-400 font-bold hover:underline self-start sm:self-auto"
           >
             Manage Directory <ChevronRight className="w-4 h-4" />
@@ -434,17 +434,16 @@ export function Dashboard() {
                       {emp.location || 'Remote'}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                        emp.employmentStatus === 'ACTIVE'
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${emp.employmentStatus === 'ACTIVE'
                           ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400'
                           : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
-                      }`}>
+                        }`}>
                         {emp.employmentStatus}
                       </span>
                     </td>
                     <td className="py-3.5 pl-4 text-right">
-                      <button 
-                        onClick={() => navigate('/employees')} 
+                      <button
+                        onClick={() => navigate('/employees')}
                         className="text-indigo-600 dark:text-indigo-450 font-bold hover:underline"
                       >
                         View Twin

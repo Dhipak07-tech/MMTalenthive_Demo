@@ -1,5 +1,15 @@
-// ── Onboarding Validation Engine ──────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Employee Onboarding — Validation & Profile Health Engine
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Enterprise HRMS Standard (Workday / SAP SuccessFactors / Darwinbox aligned):
+//   • Employee Twin creation requires ONLY core identity + employment fields
+//   • All other sections are OPTIONAL during onboarding
+//   • Profile Completion is a HEALTH SCORE, not a creation blocker
+//   • Missing info can be enriched progressively via Employee 360 Workspace
+//
 // Pure validation functions with no React dependencies — fully unit-testable.
+// ══════════════════════════════════════════════════════════════════════════════
 
 export type StepStatus = 'not_started' | 'in_progress' | 'error' | 'completed';
 
@@ -10,6 +20,8 @@ export interface StepValidationResult {
   filledCount: number;
   /** Total number of required fields */
   totalRequired: number;
+  /** Whether this step is mandatory for creation */
+  isMandatory: boolean;
 }
 
 export interface OnboardingFormData {
@@ -35,6 +47,7 @@ export interface OnboardingFormData {
   managerId: string;
   workMode: string;
   designation: string;
+  employmentType?: string;
 
   // Step 3: Compliance
   panNumber: string;
@@ -60,7 +73,13 @@ export interface OnboardingFormData {
   hrbpId: string;
 }
 
-// ── Step 1: Identity ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// MANDATORY STEPS — Required for Employee Twin creation
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Step 1: Identity (MANDATORY) ──────────────────────────────────────────────
+// Required: First Name, Last Name, Work Email
+// Optional during creation: Work Phone, Gender, Date of Birth, Personal Email
 
 export function validateStep1(data: OnboardingFormData): StepValidationResult {
   const errors: string[] = [];
@@ -68,9 +87,6 @@ export function validateStep1(data: OnboardingFormData): StepValidationResult {
     { value: data.firstName.trim(), label: 'First Name' },
     { value: data.lastName.trim(), label: 'Last Name' },
     { value: data.workEmail.trim(), label: 'Work Email' },
-    { value: data.workPhone.trim(), label: 'Work Phone' },
-    { value: data.gender.trim(), label: 'Gender' },
-    { value: data.dateOfBirth.trim(), label: 'Date of Birth' },
   ];
 
   for (const check of requiredChecks) {
@@ -79,7 +95,7 @@ export function validateStep1(data: OnboardingFormData): StepValidationResult {
     }
   }
 
-  // Format validation
+  // Format validation — only validate if provided
   if (data.workEmail.trim() && !data.workEmail.includes('@')) {
     errors.push('Work Email (invalid format)');
   }
@@ -92,18 +108,22 @@ export function validateStep1(data: OnboardingFormData): StepValidationResult {
     errors,
     filledCount,
     totalRequired,
+    isMandatory: true,
   };
 }
 
-// ── Step 2: Employment DNA ────────────────────────────────────────────────────
+// ── Step 2: Employment DNA (MANDATORY) ────────────────────────────────────────
+// Required: Organization, Department, Designation, Employment Type, Date of Joining
+// Optional during creation: BU, Division, Location, Grade, Band, Manager
 
 export function validateStep2(data: OnboardingFormData): StepValidationResult {
   const errors: string[] = [];
   const requiredChecks = [
-    { value: data.dateOfJoining.trim(), label: 'Date of Joining' },
     { value: data.selectedOrg.trim(), label: 'Organization' },
+    { value: data.selectedDept.trim(), label: 'Department' },
     { value: data.designation.trim(), label: 'Designation' },
-    { value: data.managerId.trim(), label: 'Reporting Manager' },
+    { value: (data.employmentType || '').trim(), label: 'Employment Type' },
+    { value: data.dateOfJoining.trim(), label: 'Date of Joining' },
   ];
 
   for (const check of requiredChecks) {
@@ -120,25 +140,27 @@ export function validateStep2(data: OnboardingFormData): StepValidationResult {
     errors,
     filledCount,
     totalRequired,
+    isMandatory: true,
   };
 }
 
-// ── Step 3: Compliance ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// OPTIONAL STEPS — Enrich progressively after creation
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Step 3: Compliance (OPTIONAL) ─────────────────────────────────────────────
 
 export function validateStep3(data: OnboardingFormData): StepValidationResult {
-  const errors: string[] = [];
-  const requiredChecks = [
+  const optionalChecks = [
     { value: data.panNumber.trim(), label: 'PAN Number' },
     { value: data.aadhaarNumber.trim(), label: 'Aadhaar Number' },
+    { value: data.uanNumber.trim(), label: 'UAN Number' },
+    { value: data.esicNumber.trim(), label: 'ESIC Number' },
   ];
 
-  for (const check of requiredChecks) {
-    if (!check.value) {
-      errors.push(check.label);
-    }
-  }
+  const errors: string[] = [];
 
-  // Format validation
+  // Format validation only when provided — never block creation
   if (data.panNumber.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(data.panNumber.trim())) {
     errors.push('PAN Number (invalid format — expected ABCDE1234F)');
   }
@@ -146,48 +168,40 @@ export function validateStep3(data: OnboardingFormData): StepValidationResult {
     errors.push('Aadhaar Number (invalid format — expected 12 digits)');
   }
 
-  const filledCount = requiredChecks.filter(c => !!c.value).length;
-  const totalRequired = requiredChecks.length;
+  const filledCount = optionalChecks.filter(c => !!c.value).length;
 
   return {
-    status: deriveStatus(filledCount, totalRequired, errors),
+    status: filledCount === optionalChecks.length ? 'completed' : filledCount > 0 ? 'in_progress' : 'not_started',
     errors,
     filledCount,
-    totalRequired,
+    totalRequired: 0, // No required fields — all optional
+    isMandatory: false,
   };
 }
 
-// ── Step 4: Banking ───────────────────────────────────────────────────────────
+// ── Step 4: Banking (OPTIONAL) ────────────────────────────────────────────────
 
 export function validateStep4(data: OnboardingFormData): StepValidationResult {
-  const errors: string[] = [];
-  const requiredChecks = [
+  const optionalChecks = [
     { value: data.bankName.trim(), label: 'Bank Name' },
-    { value: data.bankAccountNumber.trim(), label: 'Bank Account Number' },
-    { value: data.bankIfsc.trim(), label: 'Bank IFSC Code' },
+    { value: data.bankAccountNumber.trim(), label: 'Account Number' },
+    { value: data.bankIfsc.trim(), label: 'IFSC Code' },
   ];
 
-  for (const check of requiredChecks) {
-    if (!check.value) {
-      errors.push(check.label);
-    }
-  }
-
-  const filledCount = requiredChecks.filter(c => !!c.value).length;
-  const totalRequired = requiredChecks.length;
+  const filledCount = optionalChecks.filter(c => !!c.value).length;
 
   return {
-    status: deriveStatus(filledCount, totalRequired, errors),
-    errors,
+    status: filledCount === optionalChecks.length ? 'completed' : filledCount > 0 ? 'in_progress' : 'not_started',
+    errors: [],
     filledCount,
-    totalRequired,
+    totalRequired: 0,
+    isMandatory: false,
   };
 }
 
-// ── Step 5: Skills & Certs (optional) ─────────────────────────────────────────
+// ── Step 5: Skills & Certs (OPTIONAL) ─────────────────────────────────────────
 
 export function validateStep5(data: OnboardingFormData): StepValidationResult {
-  // Optional step — completed if at least 1 skill OR cert added, else not_started
   const hasSkills = data.skillsList.length > 0;
   const hasCerts = data.certificationsList.length > 0;
   const filledCount = (hasSkills ? 1 : 0) + (hasCerts ? 1 : 0);
@@ -196,11 +210,12 @@ export function validateStep5(data: OnboardingFormData): StepValidationResult {
     status: filledCount > 0 ? 'completed' : 'not_started',
     errors: [],
     filledCount,
-    totalRequired: 0, // optional
+    totalRequired: 0,
+    isMandatory: false,
   };
 }
 
-// ── Step 6: Documents (optional) ──────────────────────────────────────────────
+// ── Step 6: Documents (OPTIONAL) ──────────────────────────────────────────────
 
 export function validateStep6(data: OnboardingFormData): StepValidationResult {
   const hasDocs = data.documentsList.length > 0;
@@ -210,24 +225,27 @@ export function validateStep6(data: OnboardingFormData): StepValidationResult {
     errors: [],
     filledCount: hasDocs ? 1 : 0,
     totalRequired: 0,
+    isMandatory: false,
   };
 }
 
-// ── Step 7: Relationships (optional) ──────────────────────────────────────────
+// ── Step 7: Relationships (OPTIONAL) ──────────────────────────────────────────
 
 export function validateStep7(data: OnboardingFormData): StepValidationResult {
-  // Manager is validated in step 2. Buddy/Mentor/HRBP are optional enrichment.
-  const hasRelationships = !!(data.buddyId || data.mentorId || data.hrbpId);
+  const hasRelationships = !!(data.buddyId || data.mentorId || data.hrbpId || data.managerId);
 
   return {
     status: hasRelationships ? 'completed' : 'not_started',
     errors: [],
     filledCount: hasRelationships ? 1 : 0,
     totalRequired: 0,
+    isMandatory: false,
   };
 }
 
-// ── Aggregate Validation ──────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Aggregate Validation & Profile Health Engine
+// ══════════════════════════════════════════════════════════════════════════════
 
 export type StepValidator = (data: OnboardingFormData) => StepValidationResult;
 
@@ -242,17 +260,163 @@ export const STEP_VALIDATORS: Record<number, StepValidator> = {
   7: validateStep7,
 };
 
-/** Steps that MUST pass validation before submission */
-export const MANDATORY_STEPS = [1, 2, 3, 4];
+/** Steps that MUST pass validation before Employee Twin creation */
+export const MANDATORY_STEPS = [1, 2];
+
+/** Steps that are optional — contribute to profile health score only */
+export const OPTIONAL_STEPS = [3, 4, 5, 6, 7];
+
+// ── Profile Health Weights ────────────────────────────────────────────────────
+// Used for Profile Completion % health score (NOT for creation blocking)
+
+export interface ProfileHealthSection {
+  stepNumber: number;
+  label: string;
+  weight: number; // percentage weight out of 100
+  fields: { key: string; label: string; potentialGain: number }[];
+}
+
+export const PROFILE_HEALTH_SECTIONS: ProfileHealthSection[] = [
+  {
+    stepNumber: 1,
+    label: 'Identity & Contact',
+    weight: 20,
+    fields: [
+      { key: 'firstName', label: 'First Name', potentialGain: 4 },
+      { key: 'lastName', label: 'Last Name', potentialGain: 4 },
+      { key: 'workEmail', label: 'Work Email', potentialGain: 4 },
+      { key: 'workPhone', label: 'Work Phone', potentialGain: 3 },
+      { key: 'gender', label: 'Gender', potentialGain: 2 },
+      { key: 'dateOfBirth', label: 'Date of Birth', potentialGain: 3 },
+    ],
+  },
+  {
+    stepNumber: 2,
+    label: 'Employment DNA',
+    weight: 25,
+    fields: [
+      { key: 'selectedOrg', label: 'Organization', potentialGain: 5 },
+      { key: 'selectedDept', label: 'Department', potentialGain: 5 },
+      { key: 'designation', label: 'Designation', potentialGain: 5 },
+      { key: 'employmentType', label: 'Employment Type', potentialGain: 3 },
+      { key: 'dateOfJoining', label: 'Date of Joining', potentialGain: 4 },
+      { key: 'managerId', label: 'Reporting Manager', potentialGain: 3 },
+    ],
+  },
+  {
+    stepNumber: 3,
+    label: 'Compliance',
+    weight: 15,
+    fields: [
+      { key: 'panNumber', label: 'PAN Number', potentialGain: 5 },
+      { key: 'aadhaarNumber', label: 'Aadhaar Number', potentialGain: 5 },
+      { key: 'uanNumber', label: 'UAN Number', potentialGain: 3 },
+      { key: 'esicNumber', label: 'ESIC Number', potentialGain: 2 },
+    ],
+  },
+  {
+    stepNumber: 4,
+    label: 'Banking',
+    weight: 10,
+    fields: [
+      { key: 'bankName', label: 'Bank Name', potentialGain: 3 },
+      { key: 'bankAccountNumber', label: 'Account Number', potentialGain: 4 },
+      { key: 'bankIfsc', label: 'IFSC Code', potentialGain: 3 },
+    ],
+  },
+  {
+    stepNumber: 5,
+    label: 'Skills & Certifications',
+    weight: 5,
+    fields: [
+      { key: 'skillsList', label: 'Skills', potentialGain: 3 },
+      { key: 'certificationsList', label: 'Certifications', potentialGain: 2 },
+    ],
+  },
+  {
+    stepNumber: 6,
+    label: 'Documents',
+    weight: 10,
+    fields: [
+      { key: 'documentsList', label: 'Documents', potentialGain: 10 },
+    ],
+  },
+  {
+    stepNumber: 7,
+    label: 'Relationships',
+    weight: 15,
+    fields: [
+      { key: 'managerId', label: 'Reporting Manager', potentialGain: 6 },
+      { key: 'buddyId', label: 'Buddy', potentialGain: 3 },
+      { key: 'mentorId', label: 'Mentor', potentialGain: 3 },
+      { key: 'hrbpId', label: 'HRBP', potentialGain: 3 },
+    ],
+  },
+];
+
+// ── Profile Health Score Calculator ───────────────────────────────────────────
+
+export interface ProfileHealthItem {
+  label: string;
+  filled: boolean;
+  potentialGain: number;
+  sectionLabel: string;
+  stepNumber: number;
+}
+
+export function computeProfileHealth(data: OnboardingFormData): {
+  score: number;
+  items: ProfileHealthItem[];
+  missingItems: ProfileHealthItem[];
+} {
+  const items: ProfileHealthItem[] = [];
+  let totalWeight = 0;
+  let filledWeight = 0;
+
+  for (const section of PROFILE_HEALTH_SECTIONS) {
+    const sectionTotalGain = section.fields.reduce((s, f) => s + f.potentialGain, 0);
+
+    for (const field of section.fields) {
+      const rawValue = (data as any)[field.key];
+      const filled = Array.isArray(rawValue)
+        ? rawValue.length > 0
+        : typeof rawValue === 'string' ? rawValue.trim().length > 0 : !!rawValue;
+
+      const normalizedGain = sectionTotalGain > 0
+        ? (field.potentialGain / sectionTotalGain) * section.weight
+        : 0;
+
+      totalWeight += normalizedGain;
+      if (filled) filledWeight += normalizedGain;
+
+      items.push({
+        label: field.label,
+        filled,
+        potentialGain: Math.round(normalizedGain),
+        sectionLabel: section.label,
+        stepNumber: section.stepNumber,
+      });
+    }
+  }
+
+  const score = totalWeight > 0 ? Math.round((filledWeight / totalWeight) * 100) : 0;
+  const missingItems = items.filter(i => !i.filled);
+
+  return { score, items, missingItems };
+}
+
+// ── Aggregate Validation Summary ──────────────────────────────────────────────
 
 export interface ValidationSummary {
   stepResults: Record<number, StepValidationResult>;
-  /** All mandatory steps pass */
+  /** All mandatory steps (identity + employment DNA) pass */
   canSubmit: boolean;
-  /** Overall completion percentage based on mandatory fields */
+  /** Profile health score (0-100) — NOT a creation blocker */
   completionPercentage: number;
-  /** List of missing mandatory section labels */
+  /** List of missing MANDATORY section labels */
   missingSections: { stepNumber: number; stepLabel: string; errors: string[] }[];
+  /** Missing optional items with potential score improvement */
+  optionalMissing: ProfileHealthItem[];
 }
 
 const STEP_LABELS: Record<number, string> = {
@@ -273,21 +437,13 @@ export function computeValidationSummary(data: OnboardingFormData): ValidationSu
     stepResults[stepNum] = validator(data);
   }
 
-  // canSubmit: all mandatory steps must be 'completed'
+  // canSubmit: ONLY mandatory steps (1 = Identity, 2 = Employment DNA) must pass
   const canSubmit = MANDATORY_STEPS.every(s => stepResults[s].status === 'completed');
 
-  // Completion percentage: mandatory fields only
-  let totalMandatory = 0;
-  let filledMandatory = 0;
-  for (const s of MANDATORY_STEPS) {
-    totalMandatory += stepResults[s].totalRequired;
-    filledMandatory += stepResults[s].filledCount;
-  }
-  const completionPercentage = totalMandatory > 0
-    ? Math.round((filledMandatory / totalMandatory) * 100)
-    : 0;
+  // Profile health score (weighted, not just mandatory fields)
+  const { score: completionPercentage, missingItems: optionalMissing } = computeProfileHealth(data);
 
-  // Collect missing sections
+  // Collect missing mandatory sections only
   const missingSections: ValidationSummary['missingSections'] = [];
   for (const s of MANDATORY_STEPS) {
     if (stepResults[s].status !== 'completed') {
@@ -299,7 +455,7 @@ export function computeValidationSummary(data: OnboardingFormData): ValidationSu
     }
   }
 
-  return { stepResults, canSubmit, completionPercentage, missingSections };
+  return { stepResults, canSubmit, completionPercentage, missingSections, optionalMissing };
 }
 
 // ── Internal helper ───────────────────────────────────────────────────────────

@@ -56,4 +56,25 @@ public class EmployeeCodeGeneratorService {
         log.info("Generated Employee Code for organization {}: {}", orgCode, generatedCode);
         return generatedCode;
     }
+
+    /**
+     * Previews the next sequence code without incrementing/modifying the database.
+     */
+    @Transactional(readOnly = true)
+    public String previewNextEmployeeCode(UUID organizationId) {
+        String orgCode = "ORG";
+        if (organizationId != null) {
+            orgCode = organizationRepository.findById(organizationId)
+                .map(org -> org.getCode())
+                .orElse("ORG");
+        }
+        orgCode = orgCode.trim().toUpperCase();
+
+        UUID targetOrgId = organizationId != null ? organizationId : UUID.nameUUIDFromBytes("default-org".getBytes());
+        int lastSeq = sequenceRepository.findById(targetOrgId)
+            .map(EmployeeCodeSequence::getLastSequence)
+            .orElse(0);
+
+        return String.format("%s-EMP-%06d", orgCode, lastSeq + 1);
+    }
 }

@@ -109,4 +109,10 @@ public class EmployeeTwinController {
         int score = service.calculateProfileCompletion(id);
         return ApiResponse.success(score);
     }
+
+    @GetMapping("/preview/next-code")
+    public ApiResponse<String> getNextEmployeeCode(@RequestParam(required = false) UUID organizationId) {
+        String code = service.previewNextEmployeeCode(organizationId);
+        return ApiResponse.success(code);
+    }
 }
