@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { computeValidationSummary, STEP_VALIDATORS, MANDATORY_STEPS, type OnboardingFormData, type StepStatus } from './onboardingValidation';
 import { useOnboardEmployeeMutation, useGetEmployeesQuery } from './employeesApi';
 import { 
   useGetOrganizationsQuery, 
@@ -11,7 +12,7 @@ import {
 } from '../org-dna/orgDnaApi';
 import { 
   User, Briefcase, ShieldCheck, Award, FileText, Network, Clock, X, Plus, Trash2, CheckCircle2, Sparkles, Upload,
-  Mail, Phone, Calendar, Building2, Globe, Fingerprint, MapPin, CreditCard, Info, ChevronDown, ChevronLeft, ChevronRight, Check, UploadCloud, Landmark
+  Mail, Phone, Calendar, Building2, Globe, Fingerprint, MapPin, CreditCard, Info, ChevronDown, ChevronLeft, ChevronRight, Check, UploadCloud, Landmark, AlertTriangle
 } from 'lucide-react';
 
 interface WizardProps {
@@ -143,39 +144,44 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
     ]);
   };
 
-  // ── Calculation: Profile Strength & Completion % ──
-  const calculateMetrics = () => {
-    const fields = [
-      firstName, lastName, workEmail, personalEmail, workPhone, personalPhone, gender, dateOfBirth,
-      employeeCode, dateOfJoining, selectedOrg, selectedLoc, selectedGrade, selectedBand,
-      managerId, designation,
-      panNumber, aadhaarNumber, uanNumber, esicNumber,
-      bankName, bankAccountNumber, bankIfsc,
-      skillsList.length > 0 ? 'yes' : '',
-      certificationsList.length > 0 ? 'yes' : '',
-      documentsList.length > 0 ? 'yes' : '',
-      buddyId || mentorId || hrbpId ? 'yes' : ''
-    ];
-    const filledCount = fields.filter(f => !!f).length;
-    const percentage = Math.round((filledCount / fields.length) * 100);
+  // ── Validation Engine (data-driven, not navigation-driven) ──
+  const formData: OnboardingFormData = useMemo(() => ({
+    firstName, lastName, workEmail, personalEmail, workPhone, personalPhone, gender, dateOfBirth,
+    dateOfJoining, selectedOrg, selectedBU, selectedDiv, selectedDept, selectedLoc, selectedGrade, selectedBand,
+    managerId, workMode, designation,
+    panNumber, aadhaarNumber, uanNumber, esicNumber,
+    bankName, bankAccountNumber, bankIfsc,
+    skillsList, certificationsList, documentsList,
+    buddyId, mentorId, hrbpId,
+  }), [firstName, lastName, workEmail, personalEmail, workPhone, personalPhone, gender, dateOfBirth,
+    dateOfJoining, selectedOrg, selectedBU, selectedDiv, selectedDept, selectedLoc, selectedGrade, selectedBand,
+    managerId, workMode, designation, panNumber, aadhaarNumber, uanNumber, esicNumber,
+    bankName, bankAccountNumber, bankIfsc, skillsList, certificationsList, documentsList,
+    buddyId, mentorId, hrbpId]);
 
-    let strength = 'Poor';
-    let strengthColor = 'text-rose-500 bg-rose-500/10 border-rose-500/20';
-    if (percentage >= 80) {
-      strength = 'Excellent';
-      strengthColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-    } else if (percentage >= 50) {
-      strength = 'Good';
-      strengthColor = 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20';
-    } else if (percentage >= 25) {
-      strength = 'Fair';
-      strengthColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
-    }
+  const validationSummary = useMemo(() => computeValidationSummary(formData), [formData]);
+  const { canSubmit, completionPercentage: percentage, missingSections, stepResults } = validationSummary;
 
-    return { percentage, strength, strengthColor };
+  const getStepStatus = (stepNr: number): StepStatus => {
+    if (stepNr === 8) return canSubmit ? 'completed' : (percentage > 0 ? 'in_progress' : 'not_started');
+    return stepResults[stepNr]?.status ?? 'not_started';
   };
 
-  const { percentage, strength, strengthColor } = calculateMetrics();
+  const stepStatusColors = (status: StepStatus) => {
+    switch (status) {
+      case 'completed': return { bg: 'bg-emerald-500 border-emerald-500 text-white', text: 'text-emerald-500', icon: '✓' };
+      case 'in_progress': return { bg: 'bg-blue-500 border-blue-500 text-white', text: 'text-blue-500', icon: '…' };
+      case 'error': return { bg: 'bg-rose-500 border-rose-500 text-white', text: 'text-rose-500', icon: '!' };
+      default: return { bg: 'bg-white dark:bg-[#0F131F] border-slate-200 dark:border-slate-850 text-slate-400 dark:text-slate-500', text: 'text-slate-400 dark:text-slate-500', icon: '' };
+    }
+  };
+
+  // Legacy-compatible strength display
+  let strength = 'Poor';
+  let strengthColor = 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+  if (percentage >= 80) { strength = 'Excellent'; strengthColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'; }
+  else if (percentage >= 50) { strength = 'Good'; strengthColor = 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20'; }
+  else if (percentage >= 25) { strength = 'Fair'; strengthColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'; }
 
   const handleSubmit = async () => {
     try {
@@ -290,7 +296,8 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
             {stepsList.map((s) => {
               const Icon = s.icon;
               const isActive = step === s.nr;
-              const isCompleted = step > s.nr;
+              const status = getStepStatus(s.nr);
+              const colors = stepStatusColors(status);
               return (
                 <button
                   key={s.nr}
@@ -298,17 +305,21 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   className={`w-full flex items-center justify-between p-2.5 rounded-lg text-xs transition-all font-semibold outline-none ${
                     isActive 
                       ? 'bg-[#5D69F4] text-white shadow-[0_4px_12px_rgba(93,105,244,0.25)]' 
-                      : isCompleted 
+                      : status === 'completed'
                         ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40' 
-                        : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/20'
+                        : status === 'error'
+                          ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20'
+                          : status === 'in_progress'
+                            ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20'
+                            : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/20'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : isCompleted ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-550'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : colors.text}`} />
                     <span>{s.label}</span>
                   </div>
-                  {isCompleted && (
-                    <span className="text-[10px] text-emerald-500 font-bold">✓</span>
+                  {!isActive && status !== 'not_started' && (
+                    <span className={`text-[10px] font-bold ${colors.text}`}>{colors.icon}</span>
                   )}
                 </button>
               );
@@ -361,7 +372,8 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
               
               {stepsList.map((s) => {
                 const isActive = step === s.nr;
-                const isCompleted = step > s.nr;
+                const status = getStepStatus(s.nr);
+                const colors = stepStatusColors(status);
                 return (
                   <button 
                     key={s.nr}
@@ -371,18 +383,22 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all font-bold text-xs ${
                       isActive 
                         ? 'bg-[#5D69F4] border-[#5D69F4] text-white shadow-[0_0_12px_rgba(93,105,244,0.3)]' 
-                        : isCompleted 
-                          ? 'bg-emerald-500 border-emerald-500 text-white' 
-                          : 'bg-white dark:bg-[#0F131F] border-slate-200 dark:border-slate-850 text-slate-400 dark:text-slate-500 group-hover:border-slate-300'
+                        : `${colors.bg} group-hover:border-slate-300`
                     }`}>
-                      {isCompleted ? <Check className="w-4.5 h-4.5" /> : s.nr}
+                      {!isActive && status === 'completed' ? <Check className="w-4.5 h-4.5" /> 
+                        : !isActive && status === 'error' ? <AlertTriangle className="w-4 h-4" /> 
+                        : s.nr}
                     </div>
                     <span className={`text-[10px] font-bold mt-2 text-center transition-colors ${
                       isActive 
                         ? 'text-indigo-600 dark:text-indigo-400' 
-                        : isCompleted 
+                        : status === 'completed'
                           ? 'text-slate-700 dark:text-slate-350' 
-                          : 'text-slate-400 dark:text-slate-550'
+                          : status === 'error'
+                            ? 'text-rose-500 dark:text-rose-400'
+                            : status === 'in_progress'
+                              ? 'text-blue-500 dark:text-blue-400'
+                              : 'text-slate-400 dark:text-slate-550'
                     }`}>
                       {s.label}
                     </span>
@@ -1249,6 +1265,42 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   </div>
                 </div>
 
+                {/* Validation Summary Card */}
+                {missingSections.length > 0 && (
+                  <div className="border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/10 rounded-xl p-5 space-y-3">
+                    <h4 className="font-extrabold text-rose-600 dark:text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" /> Missing Information — {missingSections.length} section{missingSections.length > 1 ? 's' : ''} incomplete
+                    </h4>
+                    <div className="space-y-2">
+                      {missingSections.map((section) => (
+                        <button
+                          key={section.stepNumber}
+                          onClick={() => setStep(section.stepNumber)}
+                          className="w-full text-left p-3 border border-rose-100 dark:border-rose-900/30 rounded-lg bg-white dark:bg-[#0F131F] hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 dark:text-white">{section.stepLabel}</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-500 transition-colors" />
+                          </div>
+                          <p className="text-[10px] text-rose-500 dark:text-rose-400 mt-1 font-semibold">
+                            Missing: {section.errors.join(', ')}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {canSubmit && (
+                  <div className="border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-xl p-4 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">All mandatory sections complete</p>
+                      <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 mt-0.5">This employee is ready to be onboarded.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Summary Lists */}
                 <div className="border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 bg-slate-50/30 dark:bg-slate-900/5 space-y-4 max-h-[260px] overflow-y-auto">
                   <h4 className="font-extrabold text-slate-850 dark:text-white uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800 pb-2 flex items-center gap-1.5">
@@ -1336,10 +1388,15 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
           ) : (
             <button 
               onClick={handleSubmit}
-              disabled={isLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] disabled:opacity-50 flex items-center gap-1.5"
+              disabled={isLoading || !canSubmit}
+              className={`px-5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                canSubmit 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_4px_12px_rgba(16,185,129,0.2)] disabled:opacity-50'
+                  : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+              }`}
+              title={!canSubmit ? 'Complete all mandatory sections before submitting' : ''}
             >
-              {isLoading ? 'Onboarding...' : 'Onboard Employee Twin'} <Check className="w-4 h-4" />
+              {isLoading ? 'Onboarding...' : !canSubmit ? 'Complete All Sections' : 'Onboard Employee Twin'} <Check className="w-4 h-4" />
             </button>
           )}
         </div>
