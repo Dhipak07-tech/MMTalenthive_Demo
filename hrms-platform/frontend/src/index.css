@@ -1,11 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════════
    ManageMyOpz HR Platform — Design System
-   Premium Enterprise Design Tokens
+   Premium Enterprise Design Tokens & Typography overrides
    ══════════════════════════════════════════════════════════════ */
 
+:root {
+  --font-family-primary: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  
+  /* Typography Scale */
+  --font-size-display: 36px;
+  --font-size-page-title: 30px;
+  --font-size-section-title: 24px;
+  --font-size-card-title: 20px;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+}
+
 @theme {
+  --font-sans: var(--font-family-primary);
+  
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
   --color-primary-200: #bfdbfe;
@@ -33,21 +48,20 @@
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #06b6d4;
-
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* ── Global Styles ─────────────────────────────────────── */
+/* ── Global Styles & Reset ─────────────────────────────────────── */
 
 @layer base {
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: var(--font-family-primary);
   }
 
   html {
-    font-family: var(--font-sans);
+    font-family: var(--font-family-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -56,6 +70,79 @@
     background-color: var(--color-surface-50);
     color: var(--color-surface-900);
     min-height: 100vh;
+    font-size: var(--font-size-body);
+    font-weight: 400;
+  }
+
+  /* Headings override */
+  h1, .text-display {
+    font-size: var(--font-size-page-title);
+    font-weight: 700;
+  }
+
+  h2, .text-section-title {
+    font-size: var(--font-size-section-title);
+    font-weight: 600;
+  }
+
+  h3, .text-card-title {
+    font-size: var(--font-size-card-title);
+    font-weight: 600;
+  }
+
+  /* Tables overriding for heights & typography readability */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table tr {
+    transition: background-color 0.2s ease;
+  }
+
+  table th {
+    height: 52px !important;
+    padding: 0 16px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: uppercase !important;
+    vertical-align: middle !important;
+  }
+
+  table td {
+    height: 48px !important;
+    padding: 0 16px !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+    vertical-align: middle !important;
+  }
+
+  /* Form typography rules */
+  label, .form-label {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+  }
+
+  input, select, textarea, .form-input {
+    font-size: 14px !important;
+    font-weight: 400 !important;
+  }
+
+  .helper-text {
+    font-size: var(--font-size-small) !important;
+    font-weight: 400 !important;
+  }
+
+  .badge-text, .badge {
+    font-size: var(--font-size-small) !important;
+    font-weight: 600 !important;
+  }
+
+  /* Buttons typography rules */
+  button, .btn {
+    font-size: 14px !important;
+    font-weight: 600 !important;
   }
 
   ::-webkit-scrollbar {
