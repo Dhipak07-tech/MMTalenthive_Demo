@@ -10,7 +10,8 @@ import {
   useGetBandsQuery 
 } from '../org-dna/orgDnaApi';
 import { 
-  User, Briefcase, ShieldCheck, Award, FileText, Network, Clock, X, Plus, Trash2, CheckCircle2, Sparkles, Upload
+  User, Briefcase, ShieldCheck, Award, FileText, Network, Clock, X, Plus, Trash2, CheckCircle2, Sparkles, Upload,
+  Mail, Phone, Calendar, Building2, Globe, Fingerprint, MapPin, CreditCard, Info, ChevronDown, ChevronLeft, ChevronRight, Check, UploadCloud, Landmark
 } from 'lucide-react';
 
 interface WizardProps {
@@ -20,6 +21,7 @@ interface WizardProps {
 
 export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   const [step, setStep] = useState(1);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   
   // ── Step 1: Identity ────────────────────────
   const [firstName, setFirstName] = useState('');
@@ -158,16 +160,16 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
     const percentage = Math.round((filledCount / fields.length) * 100);
 
     let strength = 'Poor';
-    let strengthColor = 'text-rose-450 bg-rose-955/20 border-rose-900/30';
+    let strengthColor = 'text-rose-500 bg-rose-500/10 border-rose-500/20';
     if (percentage >= 80) {
       strength = 'Excellent';
-      strengthColor = 'text-emerald-450 bg-emerald-950/20 border-emerald-900/30';
+      strengthColor = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
     } else if (percentage >= 50) {
       strength = 'Good';
-      strengthColor = 'text-indigo-400 bg-indigo-950/20 border-indigo-900/30';
+      strengthColor = 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20';
     } else if (percentage >= 25) {
       strength = 'Fair';
-      strengthColor = 'text-amber-450 bg-amber-955/20 border-amber-900/30';
+      strengthColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
     }
 
     return { percentage, strength, strengthColor };
@@ -244,37 +246,47 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   };
 
   const stepsList = [
-    { nr: 1, label: 'Identity', icon: User },
-    { nr: 2, label: 'Employment DNA', icon: Briefcase },
-    { nr: 3, label: 'Compliance', icon: ShieldCheck },
-    { nr: 4, label: 'Banking Details', icon: Clock },
-    { nr: 5, label: 'Skills & Certifications', icon: Award },
-    { nr: 6, label: 'Documents Upload', icon: FileText },
-    { nr: 7, label: 'Relationships', icon: Network },
-    { nr: 8, label: 'Review & Create', icon: Sparkles }
+    { nr: 1, label: 'Identity', icon: User, desc: 'Personal and contact information' },
+    { nr: 2, label: 'Employment DNA', icon: Briefcase, desc: 'Organizational levels' },
+    { nr: 3, label: 'Compliance', icon: ShieldCheck, desc: 'Federal registries' },
+    { nr: 4, label: 'Banking Details', icon: Clock, desc: 'Salary disbursement logs' },
+    { nr: 5, label: 'Skills & Certs', icon: Award, desc: 'Expertise and levels' },
+    { nr: 6, label: 'Documents Upload', icon: FileText, desc: 'Attached verification papers' },
+    { nr: 7, label: 'Relationships', icon: Network, desc: 'Reporting managers & buddies' },
+    { nr: 8, label: 'Review & Create', icon: Sparkles, desc: 'Verify and sync twin' }
   ];
 
   return (
-    <div className="fixed inset-0 bg-[#F3F7FA] dark:bg-[#07090e] z-50 flex flex-col md:flex-row animate-fade-in text-slate-900 dark:text-white overflow-hidden h-screen w-screen">
+    <div className="fixed inset-0 bg-[#F8FAFC] dark:bg-[#090D16] z-50 flex flex-col md:flex-row animate-fade-in text-slate-800 dark:text-slate-100 overflow-hidden h-screen w-screen font-sans">
       
       {/* ── Left Sidebar Navigation Pane ────────────────── */}
-      <div className="w-full md:w-80 bg-white dark:bg-[#0B0F19] text-slate-700 dark:text-slate-300 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between shrink-0">
+      <div className="w-full md:w-[280px] bg-white dark:bg-[#0F131F] border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between shrink-0">
         <div className="space-y-6">
           
           {/* Logo & Headline */}
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-500 to-indigo-650 flex items-center justify-center font-bold text-white shadow-md text-sm">
-                M
-              </div>
-              <span className="font-extrabold text-sm tracking-tight text-slate-800 dark:text-white uppercase">ManageMyOpz</span>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-500 to-indigo-650 flex items-center justify-center font-bold text-white shadow-md text-base">
+              M
             </div>
-            <h3 className="text-sm font-extrabold mt-4 text-slate-800 dark:text-white">Employee Onboarding</h3>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Configure aggregate root credentials.</p>
+            <div>
+              <span className="font-extrabold text-xs tracking-wider text-slate-850 dark:text-white uppercase block leading-none">ManageMyOpz</span>
+              <p className="text-[10px] text-slate-400 font-bold mt-1">HR Operating System</p>
+            </div>
+          </div>
+
+          {/* Active Step Indicator Banner */}
+          <div className="bg-[#eff6ff] dark:bg-indigo-950/20 border-l-4 border-indigo-500 p-3.5 rounded-r-lg">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 block">Step {step} of 8</span>
+            <h4 className="text-xs font-extrabold text-slate-800 dark:text-white mt-1">
+              {stepsList.find(s => s.nr === step)?.label}
+            </h4>
+            <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-1 leading-normal">
+              {stepsList.find(s => s.nr === step)?.desc}
+            </p>
           </div>
 
           {/* Steps list */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {stepsList.map((s) => {
               const Icon = s.icon;
               const isActive = step === s.nr;
@@ -292,11 +304,11 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : isCompleted ? 'text-emerald-550 dark:text-emerald-455' : 'text-slate-400 dark:text-slate-550'}`} />
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : isCompleted ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-550'}`} />
                     <span>{s.label}</span>
                   </div>
                   {isCompleted && (
-                    <span className="text-[10px] text-emerald-550 dark:text-emerald-455 font-bold font-mono">✓</span>
+                    <span className="text-[10px] text-emerald-500 font-bold">✓</span>
                   )}
                 </button>
               );
@@ -306,7 +318,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
         </div>
 
         {/* Completion Progress Widget */}
-        <div className="space-y-2 border-t border-slate-200 dark:border-slate-800/80 pt-6">
+        <div className="space-y-2.5 border-t border-slate-200 dark:border-slate-800/80 pt-6">
           <div className="flex justify-between text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">
             <span>Overall progress</span>
             <span>{percentage}%</span>
@@ -322,308 +334,502 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
       </div>
 
       {/* ── Main Form Pane ────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#F3F7FA] dark:bg-[#07090e]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#F8FAFC] dark:bg-[#090D16]">
         
         {/* Form Header */}
-        <div className="px-8 py-4 bg-white dark:bg-[#0B0F19] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+        <div className="px-8 py-4 bg-white dark:bg-[#0F131F] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-550 dark:text-indigo-400">Step {step} of 8</span>
-            <h2 className="text-sm font-extrabold text-slate-850 dark:text-white mt-0.5">
-              {stepsList.find(s => s.nr === step)?.label}
-            </h2>
+            <h2 className="text-base font-extrabold text-slate-850 dark:text-white leading-none">Employee Onboarding</h2>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Configure employee digital twin and core information.</p>
           </div>
           <button 
             onClick={onClose}
-            className="w-8 h-8 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 flex items-center justify-center text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+            className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-850 dark:hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-8 max-w-3xl mx-auto w-full">
-          <div className="bg-white dark:bg-[#0B0F19] rounded-xl border border-slate-200/80 dark:border-slate-850 p-6 shadow-sm min-h-[400px]">
+        <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full space-y-6">
+          
+          {/* Horizontal Stepper Progress Indicator */}
+          <div className="bg-white dark:bg-[#0F131F] rounded-xl border border-slate-200 dark:border-slate-800/80 p-5 shadow-sm hidden md:block">
+            <div className="flex items-center justify-between relative">
+              {/* Connector line */}
+              <div className="absolute top-5 left-8 right-8 h-0.5 border-t-2 border-dashed border-slate-200 dark:border-slate-800 z-0" />
+              
+              {stepsList.map((s) => {
+                const isActive = step === s.nr;
+                const isCompleted = step > s.nr;
+                return (
+                  <button 
+                    key={s.nr}
+                    onClick={() => setStep(s.nr)}
+                    className="flex flex-col items-center relative z-10 focus:outline-none group flex-1"
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all font-bold text-xs ${
+                      isActive 
+                        ? 'bg-[#5D69F4] border-[#5D69F4] text-white shadow-[0_0_12px_rgba(93,105,244,0.3)]' 
+                        : isCompleted 
+                          ? 'bg-emerald-500 border-emerald-500 text-white' 
+                          : 'bg-white dark:bg-[#0F131F] border-slate-200 dark:border-slate-850 text-slate-400 dark:text-slate-500 group-hover:border-slate-300'
+                    }`}>
+                      {isCompleted ? <Check className="w-4.5 h-4.5" /> : s.nr}
+                    </div>
+                    <span className={`text-[10px] font-bold mt-2 text-center transition-colors ${
+                      isActive 
+                        ? 'text-indigo-600 dark:text-indigo-400' 
+                        : isCompleted 
+                          ? 'text-slate-700 dark:text-slate-350' 
+                          : 'text-slate-400 dark:text-slate-550'
+                    }`}>
+                      {s.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Form Card */}
+          <div className="bg-white dark:bg-[#0F131F] rounded-xl border border-slate-200 dark:border-slate-800/80 p-6 shadow-sm min-h-[400px]">
             
+            {/* Form Step Title Banner */}
+            <div className="flex items-center gap-3.5 mb-6">
+              <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/40 flex items-center justify-center text-indigo-500 shrink-0">
+                {step === 1 && <User className="w-5 h-5" />}
+                {step === 2 && <Briefcase className="w-5 h-5" />}
+                {step === 3 && <ShieldCheck className="w-5 h-5" />}
+                {step === 4 && <Landmark className="w-5 h-5" />}
+                {step === 5 && <Award className="w-5 h-5" />}
+                {step === 6 && <FileText className="w-5 h-5" />}
+                {step === 7 && <Network className="w-5 h-5" />}
+                {step === 8 && <Sparkles className="w-5 h-5" />}
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-800 dark:text-white leading-none">
+                  {step === 1 && "Personal Information"}
+                  {step === 2 && "Employment DNA"}
+                  {step === 3 && "Compliance Keys"}
+                  {step === 4 && "Banking & Payout Details"}
+                  {step === 5 && "Professional Skills Cloud"}
+                  {step === 6 && "Document Vault"}
+                  {step === 7 && "Workforce Relationships"}
+                  {step === 8 && "Review & Complete Profile"}
+                </h3>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 leading-none">
+                  {step === 1 && "Enter the employee's personal and contact details."}
+                  {step === 2 && "Map division, department, location levels, and designations."}
+                  {step === 3 && "Input official tracking keys like PAN, Aadhaar, and ESIC."}
+                  {step === 4 && "Configure primary disbursement accounts and IFSC logs."}
+                  {step === 5 && "Configure expert credentials and capabilities."}
+                  {step === 6 && "Attach scanned credentials for validation."}
+                  {step === 7 && "Link team members, buddies, mentors, and HRBPs."}
+                  {step === 8 && "Verify overall digital twin configuration before initialization."}
+                </p>
+              </div>
+            </div>
+
             {/* STEP 1: IDENTITY */}
             {step === 1 && (
-              <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-350 animate-fade-in">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-450 uppercase block font-bold">First Name *</label>
-                    <input 
-                      type="text" 
-                      placeholder="John"
-                      value={firstName}
-                      onChange={e => setFirstName(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
+              <div className="space-y-4 animate-fade-in">
+                
+                {/* Photo Upload + Basic Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Left Side fields */}
+                  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">First Name *</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="text" 
+                          placeholder="John"
+                          value={firstName}
+                          onChange={e => setFirstName(e.target.value)}
+                          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Last Name *</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="text" 
+                          placeholder="Doe"
+                          value={lastName}
+                          onChange={e => setLastName(e.target.value)}
+                          className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Last Name *</label>
-                    <input 
-                      type="text" 
-                      placeholder="Doe"
-                      value={lastName}
-                      onChange={e => setLastName(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
+
+                  {/* Photo upload placeholder */}
+                  <div className="md:col-span-1 flex flex-col justify-center">
+                    <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center h-[120px] bg-slate-50/30 dark:bg-slate-900/10 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-all cursor-pointer relative group">
+                      {photoUrl ? (
+                        <>
+                          <img src={photoUrl} alt="Employee Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-indigo-500" />
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setPhotoUrl(null); }}
+                            className="absolute top-2 right-2 bg-rose-500 text-white p-1 rounded-full hover:bg-rose-600 transition-colors shadow-sm"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                          <UploadCloud className="w-5 h-5 text-indigo-500 group-hover:scale-115 transition-transform" />
+                          <span className="text-xs font-bold text-slate-800 dark:text-white mt-1.5">Upload Photo</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">JPG, PNG up to 5MB</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                const url = URL.createObjectURL(e.target.files[0]);
+                                setPhotoUrl(url);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Additional Step 1 fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-450 uppercase block font-bold">Work Email *</label>
-                    <input 
-                      type="email" 
-                      placeholder="john.doe@managemyopz.com"
-                      value={workEmail}
-                      onChange={e => setWorkEmail(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Work Email *</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="email" 
+                        placeholder="john.doe@managemyopz.com"
+                        value={workEmail}
+                        onChange={e => setWorkEmail(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all font-mono text-slate-800 dark:text-white"
+                      />
+                      {workEmail && workEmail.includes('@') && (
+                        <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                      )}
+                    </div>
                   </div>
+                  
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Personal Email</label>
-                    <input 
-                      type="email" 
-                      placeholder="john.doe.personal@gmail.com"
-                      value={personalEmail}
-                      onChange={e => setPersonalEmail(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Personal Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="email" 
+                        placeholder="john.doe.personal@gmail.com"
+                        value={personalEmail}
+                        onChange={e => setPersonalEmail(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all font-mono text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Work Phone *</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="+1 (555) 019-2834"
+                        value={workPhone}
+                        onChange={e => setWorkPhone(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Personal Phone</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="+1 (555) 014-9988"
+                        value={personalPhone}
+                        onChange={e => setPersonalPhone(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Gender *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={gender}
+                        onChange={e => setGender(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Date of Birth *</label>
+                    <div className="relative">
+                      <input 
+                        type="date" 
+                        value={dateOfBirth}
+                        onChange={e => setDateOfBirth(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all cursor-pointer text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Work Phone</label>
-                    <input 
-                      type="text" 
-                      placeholder="+1 (555) 019-2834"
-                      value={workPhone}
-                      onChange={e => setWorkPhone(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Personal Phone</label>
-                    <input 
-                      type="text" 
-                      placeholder="+1 (555) 014-9988"
-                      value={personalPhone}
-                      onChange={e => setPersonalPhone(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
-                  </div>
+                <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-3.5 flex items-center gap-2.5 mt-6">
+                  <Info className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="text-[11px] font-semibold text-slate-650 dark:text-slate-400">
+                    All fields marked with <span className="text-rose-500 font-bold">*</span> are mandatory.
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Gender</label>
-                    <select 
-                      value={gender}
-                      onChange={e => setGender(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Date of Birth</label>
-                    <input 
-                      type="date" 
-                      value={dateOfBirth}
-                      onChange={e => setDateOfBirth(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
-                  </div>
-                </div>
               </div>
             )}
 
             {/* STEP 2: EMPLOYMENT DNA */}
             {step === 2 && (
-              <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-350 animate-fade-in">
+              <div className="space-y-4 animate-fade-in">
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-450 uppercase block font-bold">Employee Code *</label>
-                    <input 
-                      type="text" 
-                      placeholder="EMP-0092"
-                      value={employeeCode}
-                      onChange={e => setEmployeeCode(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono font-bold"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Employee Code *</label>
+                    <div className="relative">
+                      <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="EMP-0092"
+                        value={employeeCode}
+                        onChange={e => setEmployeeCode(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono font-bold focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Date of Joining *</label>
-                    <input 
-                      type="date" 
-                      value={dateOfJoining}
-                      onChange={e => setDateOfJoining(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-450 uppercase block font-bold">Organization Tenant</label>
-                    <select 
-                      value={selectedOrg}
-                      onChange={e => {
-                        setSelectedOrg(e.target.value);
-                        setSelectedBU('');
-                        setSelectedDiv('');
-                        setSelectedDept('');
-                      }}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    >
-                      <option value="">Select Org</option>
-                      {(orgs || []).map((org: any) => (
-                        <option key={org.id} value={org.id}>{org.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Business Unit</label>
-                    <select 
-                      value={selectedBU}
-                      onChange={e => {
-                        setSelectedBU(e.target.value);
-                        setSelectedDiv('');
-                        setSelectedDept('');
-                      }}
-                      disabled={!selectedOrg}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs disabled:opacity-40"
-                    >
-                      <option value="">Select BU</option>
-                      {(businessUnits || []).map((bu: any) => (
-                        <option key={bu.id} value={bu.id}>{bu.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Date of Joining *</label>
+                    <div className="relative">
+                      <input 
+                        type="date" 
+                        value={dateOfJoining}
+                        onChange={e => setDateOfJoining(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all cursor-pointer text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Division</label>
-                    <select 
-                      value={selectedDiv}
-                      onChange={e => {
-                        setSelectedDiv(e.target.value);
-                        setSelectedDept('');
-                      }}
-                      disabled={!selectedBU}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs disabled:opacity-40"
-                    >
-                      <option value="">Select Division</option>
-                      {(divisions || []).map((div: any) => (
-                        <option key={div.id} value={div.id}>{div.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Organization Tenant</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedOrg}
+                        onChange={e => {
+                          setSelectedOrg(e.target.value);
+                          setSelectedBU('');
+                          setSelectedDiv('');
+                          setSelectedDept('');
+                        }}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Org</option>
+                        {(orgs || []).map((org: any) => (
+                          <option key={org.id} value={org.id}>{org.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Department</label>
-                    <select 
-                      value={selectedDept}
-                      onChange={e => setSelectedDept(e.target.value)}
-                      disabled={!selectedDiv}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs disabled:opacity-40"
-                    >
-                      <option value="">Select Department</option>
-                      {(departments || []).map((dept: any) => (
-                        <option key={dept.id} value={dept.id}>{dept.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Location</label>
-                    <select 
-                      value={selectedLoc}
-                      onChange={e => setSelectedLoc(e.target.value)}
-                      disabled={!selectedOrg}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs disabled:opacity-40"
-                    >
-                      <option value="">Select Location</option>
-                      {(locations || []).map((loc: any) => (
-                        <option key={loc.id} value={loc.id}>{loc.name} ({loc.city})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Grade Level</label>
-                    <select 
-                      value={selectedGrade}
-                      onChange={e => setSelectedGrade(e.target.value)}
-                      disabled={!selectedOrg}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs disabled:opacity-40"
-                    >
-                      <option value="">Select Grade</option>
-                      {(grades || []).map((g: any) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Business Unit</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedBU}
+                        onChange={e => {
+                          setSelectedBU(e.target.value);
+                          setSelectedDiv('');
+                          setSelectedDept('');
+                        }}
+                        disabled={!selectedOrg}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer disabled:opacity-40 text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select BU</option>
+                        {(businessUnits || []).map((bu: any) => (
+                          <option key={bu.id} value={bu.id}>{bu.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Salary Band</label>
-                    <select 
-                      value={selectedBand}
-                      onChange={e => setSelectedBand(e.target.value)}
-                      disabled={!selectedOrg}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs disabled:opacity-40"
-                    >
-                      <option value="">Select Band</option>
-                      {(bands || []).map((b: any) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Division</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedDiv}
+                        onChange={e => {
+                          setSelectedDiv(e.target.value);
+                          setSelectedDept('');
+                        }}
+                        disabled={!selectedBU}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer disabled:opacity-40 text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Division</option>
+                        {(divisions || []).map((div: any) => (
+                          <option key={div.id} value={div.id}>{div.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Work Mode</label>
-                    <select 
-                      value={workMode}
-                      onChange={e => setWorkMode(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    >
-                      <option value="REMOTE">Remote Office</option>
-                      <option value="HYBRID">Hybrid Ecosystem</option>
-                      <option value="ONSITE">On-Site Office</option>
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Department</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedDept}
+                        onChange={e => setSelectedDept(e.target.value)}
+                        disabled={!selectedDiv}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer disabled:opacity-40 text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Department</option>
+                        {(departments || []).map((dept: any) => (
+                          <option key={dept.id} value={dept.id}>{dept.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-450 uppercase block font-bold">Designation *</label>
-                    <input 
-                      type="text" 
-                      placeholder="Senior Fullstack Dev"
-                      value={designation}
-                      onChange={e => setDesignation(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Location</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedLoc}
+                        onChange={e => setSelectedLoc(e.target.value)}
+                        disabled={!selectedOrg}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer disabled:opacity-40 text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Location</option>
+                        {(locations || []).map((loc: any) => (
+                          <option key={loc.id} value={loc.id}>{loc.name} ({loc.city})</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Reporting Manager</label>
-                    <select 
-                      value={managerId}
-                      onChange={e => setManagerId(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                    >
-                      <option value="">Select Manager</option>
-                      {(existingEmployees || []).map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} ({emp.employeeCode})</option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Grade Level</label>
+                    <div className="relative">
+                      <Award className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedGrade}
+                        onChange={e => setSelectedGrade(e.target.value)}
+                        disabled={!selectedOrg}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer disabled:opacity-40 text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Grade</option>
+                        {(grades || []).map((g: any) => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Salary Band</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={selectedBand}
+                        onChange={e => setSelectedBand(e.target.value)}
+                        disabled={!selectedOrg}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer disabled:opacity-40 text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Band</option>
+                        {(bands || []).map((b: any) => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Work Mode</label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={workMode}
+                        onChange={e => setWorkMode(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="REMOTE">Remote Office</option>
+                        <option value="HYBRID">Hybrid Ecosystem</option>
+                        <option value="ONSITE">On-Site Office</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Designation *</label>
+                    <div className="relative">
+                      <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Senior Fullstack Dev"
+                        value={designation}
+                        onChange={e => setDesignation(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Reporting Manager</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={managerId}
+                        onChange={e => setManagerId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Manager</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName} ({emp.employeeCode})</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
@@ -632,59 +838,73 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
             {/* STEP 3: COMPLIANCE */}
             {step === 3 && (
-              <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-350 animate-fade-in">
+              <div className="space-y-4 animate-fade-in">
                 
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-150 dark:border-slate-800 flex gap-2.5 items-start">
-                  <ShieldCheck className="w-5 h-5 text-indigo-500 shrink-0" />
+                <div className="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-xl border border-indigo-100/30 dark:border-indigo-900/30 flex gap-3 items-start">
+                  <ShieldCheck className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-bold text-slate-800 dark:text-white">Compliance & Identity Keys</h4>
-                    <p className="text-[11px] text-slate-450 mt-0.5">Input federal registry tracking IDs. The data is secured using AES-256 field-level encryption on the database tier.</p>
+                    <h4 className="font-bold text-slate-805 dark:text-white text-xs">Statutory Compliance Registries</h4>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-normal">
+                      Input mandatory federal registry codes. Sensitive columns will be masked dynamically under advanced tenant security settings.
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">PAN Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="ABCDE1234F"
-                      value={panNumber}
-                      onChange={e => setPanNumber(e.target.value.toUpperCase())}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono font-bold"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">PAN Number</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="ABCDE1234F"
+                        value={panNumber}
+                        onChange={e => setPanNumber(e.target.value.toUpperCase())}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono font-bold focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Aadhaar Card Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="1234 5678 9012"
-                      value={aadhaarNumber}
-                      onChange={e => setAadhaarNumber(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono font-bold"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Aadhaar Card Number</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="1234 5678 9012"
+                        value={aadhaarNumber}
+                        onChange={e => setAadhaarNumber(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono font-bold focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">UAN (Universal Account Number)</label>
-                    <input 
-                      type="text" 
-                      placeholder="100998822112"
-                      value={uanNumber}
-                      onChange={e => setUanNumber(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">UAN (Universal Account Number)</label>
+                    <div className="relative">
+                      <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="100998822112"
+                        value={uanNumber}
+                        onChange={e => setUanNumber(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">ESIC Number</label>
-                    <input 
-                      type="text" 
-                      placeholder="31123456780011001"
-                      value={esicNumber}
-                      onChange={e => setEsicNumber(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">ESIC Number</label>
+                    <div className="relative">
+                      <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="31123456780011001"
+                        value={esicNumber}
+                        onChange={e => setEsicNumber(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -693,39 +913,48 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
             {/* STEP 4: BANKING DETAILS */}
             {step === 4 && (
-              <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-350 animate-fade-in">
+              <div className="space-y-4 animate-fade-in">
                 
                 <div className="space-y-1">
-                  <label className="text-[10px] text-slate-450 uppercase block font-bold">Bank Name</label>
-                  <input 
-                    type="text" 
-                    placeholder="Silicon Valley Bank"
-                    value={bankName}
-                    onChange={e => setBankName(e.target.value)}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Bank Account Number</label>
+                  <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Bank Name</label>
+                  <div className="relative">
+                    <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
                       type="text" 
-                      placeholder="9988112233"
-                      value={bankAccountNumber}
-                      onChange={e => setBankAccountNumber(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono font-bold"
+                      placeholder="Silicon Valley Bank"
+                      value={bankName}
+                      onChange={e => setBankName(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Bank IFSC Code</label>
-                    <input 
-                      type="text" 
-                      placeholder="SVTX0000231"
-                      value={bankIfsc}
-                      onChange={e => setBankIfsc(e.target.value.toUpperCase())}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-mono font-bold"
-                    />
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Bank Account Number</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="9988112233"
+                        value={bankAccountNumber}
+                        onChange={e => setBankAccountNumber(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono font-bold focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Bank IFSC Code</label>
+                    <div className="relative">
+                      <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="SVTX0000231"
+                        value={bankIfsc}
+                        onChange={e => setBankIfsc(e.target.value.toUpperCase())}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-mono font-bold focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -734,17 +963,17 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
             {/* STEP 5: SKILLS & CERTIFICATIONS */}
             {step === 5 && (
-              <div className="space-y-6 text-xs font-semibold text-slate-700 dark:text-slate-350 animate-fade-in">
+              <div className="space-y-6 animate-fade-in">
                 
                 {/* Skills Cloud */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-slate-905 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">Skills Cloud</h3>
+                  <h3 className="text-xs font-bold text-slate-850 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">Skills Cloud</h3>
                   
                   {skillsList.length > 0 && (
                     <div className="flex flex-wrap gap-2 py-2">
                       {skillsList.map((sk, idx) => (
-                        <div key={idx} className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1 rounded-full text-xs">
-                          <span>{sk.skillName} • <span className="text-[10px] text-slate-450 uppercase font-bold">{sk.proficiencyLevel}</span></span>
+                        <div key={idx} className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1 rounded-full text-xs text-slate-800 dark:text-slate-200">
+                          <span>{sk.skillName} • <span className="text-[10px] text-indigo-500 dark:text-indigo-400 uppercase font-bold">{sk.proficiencyLevel}</span></span>
                           <button onClick={() => handleRemoveSkill(idx)} className="text-rose-500 hover:text-rose-700 ml-1">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -759,20 +988,23 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       placeholder="React Native / Kubernetes"
                       value={newSkillName}
                       onChange={e => setNewSkillName(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs md:col-span-2"
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs md:col-span-2 text-slate-800 dark:text-white"
                     />
-                    <select 
-                      value={newSkillLevel}
-                      onChange={e => setNewSkillLevel(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs"
-                    >
-                      <option value="BEGINNER">Beginner</option>
-                      <option value="INTERMEDIATE">Intermediate</option>
-                      <option value="EXPERT">Expert</option>
-                    </select>
+                    <div className="relative">
+                      <select 
+                        value={newSkillLevel}
+                        onChange={e => setNewSkillLevel(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 py-2 outline-none text-xs w-full appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="BEGINNER">Beginner</option>
+                        <option value="INTERMEDIATE">Intermediate</option>
+                        <option value="EXPERT">Expert</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                     <button 
                       onClick={handleAddSkill}
-                      className="bg-[#18181B] hover:bg-[#27272A] dark:bg-indigo-650 dark:hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg flex items-center justify-center gap-1.5"
+                      className="bg-[#18181B] hover:bg-[#27272A] dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg flex items-center justify-center gap-1.5 text-xs font-bold"
                     >
                       <Plus className="w-4 h-4" /> Add
                     </button>
@@ -781,15 +1013,15 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
                 {/* Certifications Vault */}
                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-905 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">Certifications</h3>
+                  <h3 className="text-xs font-bold text-slate-850 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-2">Certifications</h3>
                   
                   {certificationsList.length > 0 && (
                     <div className="space-y-2 py-2">
                       {certificationsList.map((cert, idx) => (
                         <div key={idx} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2.5 rounded-xl">
                           <div>
-                            <p className="font-bold text-slate-850 dark:text-white">{cert.certificationName}</p>
-                            <p className="text-[10px] text-slate-450 mt-0.5">{cert.issuingAuthority} • Issued {cert.issueDate}</p>
+                            <p className="font-bold text-xs text-slate-850 dark:text-white">{cert.certificationName}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{cert.issuingAuthority} • Issued {cert.issueDate}</p>
                           </div>
                           <button onClick={() => handleRemoveCert(idx)} className="text-rose-500 hover:text-rose-700">
                             <Trash2 className="w-4 h-4" />
@@ -805,25 +1037,25 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       placeholder="AWS Solution Architect"
                       value={newCertName}
                       onChange={e => setNewCertName(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs"
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs text-slate-800 dark:text-white"
                     />
                     <input 
                       type="text" 
                       placeholder="Amazon Web Services"
                       value={newCertAuthority}
                       onChange={e => setNewCertAuthority(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs"
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs text-slate-800 dark:text-white"
                     />
                     <div className="flex gap-2">
                       <input 
                         type="date" 
                         value={newCertDate}
                         onChange={e => setNewCertDate(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none flex-1 text-xs"
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none flex-1 text-xs text-slate-800 dark:text-white"
                       />
                       <button 
                         onClick={handleAddCert}
-                        className="bg-[#18181B] hover:bg-[#27272A] dark:bg-indigo-650 dark:hover:bg-indigo-700 text-white px-3.5 rounded-lg flex items-center justify-center shrink-0"
+                        className="bg-[#18181B] hover:bg-[#27272A] dark:bg-indigo-650 dark:hover:bg-indigo-700 text-white px-3.5 rounded-lg flex items-center justify-center shrink-0 font-bold"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -836,13 +1068,15 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
             {/* STEP 6: DOCUMENTS */}
             {step === 6 && (
-              <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-350 animate-fade-in">
+              <div className="space-y-4 animate-fade-in">
                 
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-150 dark:border-slate-800 flex gap-2.5 items-start">
-                  <FileText className="w-5 h-5 text-indigo-500 shrink-0" />
+                <div className="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-xl border border-indigo-100/30 dark:border-indigo-900/30 flex gap-3 items-start">
+                  <FileText className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-bold text-slate-800 dark:text-white">Employee Document Vault</h4>
-                    <p className="text-[11px] text-slate-450 mt-0.5">Attach identity, education, and previous employment documents to create the verified twin profile.</p>
+                    <h4 className="font-bold text-slate-805 dark:text-white text-xs">Employee Document Vault</h4>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-normal">
+                      Attach identity credentials, education degree notes, and past records to initialize verification workflows.
+                    </p>
                   </div>
                 </div>
 
@@ -854,18 +1088,18 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                 ].map((docType) => {
                   const uploaded = documentsList.find(d => d.documentType === docType.key);
                   return (
-                    <div key={docType.key} className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-4">
+                    <div key={docType.key} className="p-4 border border-slate-200 dark:border-slate-800/80 rounded-xl flex items-center justify-between gap-4 bg-slate-50/30 dark:bg-slate-900/5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-800 dark:text-slate-200">{docType.label}</p>
+                        <p className="font-bold text-xs text-slate-800 dark:text-slate-200">{docType.label}</p>
                         {uploaded ? (
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-450 mt-1 flex items-center gap-1">
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-450 mt-1 flex items-center gap-1 font-semibold">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Attached: {uploaded.documentName}
                           </p>
                         ) : (
-                          <p className="text-[10px] text-slate-455 mt-1">Pending document attachment</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-550 mt-1">Pending document attachment</p>
                         )}
                       </div>
-                      <label className="cursor-pointer bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 border border-slate-200 dark:border-slate-800 px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0">
+                      <label className="cursor-pointer bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 px-3.5 py-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0 text-slate-800 dark:text-white">
                         <Upload className="w-3.5 h-3.5 text-indigo-500" />
                         {uploaded ? 'Replace' : 'Upload'}
                         <input 
@@ -886,83 +1120,101 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
             {/* STEP 7: RELATIONSHIPS */}
             {step === 7 && (
-              <div className="space-y-6 text-xs font-semibold text-slate-700 dark:text-slate-355 animate-fade-in">
+              <div className="space-y-6 animate-fade-in">
                 
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-150 dark:border-slate-800 flex gap-2.5 items-start">
-                  <Network className="w-5 h-5 text-indigo-500 shrink-0" />
+                <div className="bg-indigo-50/30 dark:bg-indigo-950/10 p-4 rounded-xl border border-indigo-100/30 dark:border-indigo-900/30 flex gap-3 items-start">
+                  <Network className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-bold text-slate-800 dark:text-white">Workforce Relationships Graph</h4>
-                    <p className="text-[11px] text-slate-450 mt-0.5">Link the new employee to managers, mentors, buddies, and HR business partners to establish organizational DNA links.</p>
+                    <h4 className="font-bold text-slate-805 dark:text-white text-xs">Workforce Relationship Map</h4>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-normal">
+                      Establish organizational lines to link buddies, mentors, manager flows, and HR business partner accounts.
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Reporting Manager */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-450 uppercase block font-bold">Reporting Manager</label>
-                    <select 
-                      value={managerId}
-                      onChange={e => setManagerId(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 outline-none w-full text-xs font-medium"
-                    >
-                      <option value="">Select Manager</option>
-                      {(existingEmployees || []).map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} ({emp.employeeCode})
-                        </option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Reporting Manager</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={managerId}
+                        onChange={e => setManagerId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2.5 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Manager</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
 
                   {/* Onboarding Buddy */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Onboarding Buddy</label>
-                    <select 
-                      value={buddyId}
-                      onChange={e => setBuddyId(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 outline-none w-full text-xs font-medium"
-                    >
-                      <option value="">Select Onboarding Buddy</option>
-                      {(existingEmployees || []).map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} ({emp.employeeCode})
-                        </option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Onboarding Buddy</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={buddyId}
+                        onChange={e => setBuddyId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2.5 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Onboarding Buddy</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
 
                   {/* Career Mentor */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">Career Mentor</label>
-                    <select 
-                      value={mentorId}
-                      onChange={e => setMentorId(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 outline-none w-full text-xs font-medium"
-                    >
-                      <option value="">Select Career Mentor</option>
-                      {(existingEmployees || []).map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} ({emp.employeeCode})
-                        </option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Career Mentor</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={mentorId}
+                        onChange={e => setMentorId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2.5 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Career Mentor</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
 
                   {/* HRBP */}
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-455 uppercase block font-bold">HR Business Partner (HRBP)</label>
-                    <select 
-                      value={hrbpId}
-                      onChange={e => setHrbpId(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 outline-none w-full text-xs font-medium"
-                    >
-                      <option value="">Select HRBP</option>
-                      {(existingEmployees || []).map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName} ({emp.employeeCode})
-                        </option>
-                      ))}
-                    </select>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">HR Business Partner (HRBP)</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={hrbpId}
+                        onChange={e => setHrbpId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2.5 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select HRBP</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
@@ -971,19 +1223,19 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
 
             {/* STEP 8: REVIEW & CREATE */}
             {step === 8 && (
-              <div className="space-y-6 text-xs font-semibold text-slate-700 dark:text-slate-300 animate-fade-in">
+              <div className="space-y-6 animate-fade-in">
                 
                 {/* Strength & Completion */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className={`p-4 rounded-xl border ${strengthColor} flex items-center gap-3`}>
-                    <Sparkles className="w-6 h-6 shrink-0" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-xl border ${strengthColor} flex items-center gap-3.5`}>
+                    <Sparkles className="w-6 h-6 shrink-0 text-indigo-500 dark:text-indigo-400 animate-pulse" />
                     <div>
                       <p className="text-[10px] uppercase font-bold text-slate-450">Twin Profile Strength</p>
-                      <p className="text-base font-extrabold mt-0.5">{strength}</p>
+                      <p className="text-sm font-extrabold mt-0.5">{strength}</p>
                     </div>
                   </div>
 
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl space-y-1.5">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
                     <div className="flex justify-between items-center font-bold text-[10px] uppercase text-slate-455">
                       <span>Profile Completion</span>
                       <span>{percentage}%</span>
@@ -998,62 +1250,64 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                 </div>
 
                 {/* Summary Lists */}
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-slate-50/20 dark:bg-slate-900/10 space-y-4 max-h-[300px] overflow-y-auto">
-                  <h4 className="font-extrabold text-slate-905 dark:text-white uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800 pb-2">Profile Twin Summary</h4>
+                <div className="border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 bg-slate-50/30 dark:bg-slate-900/5 space-y-4 max-h-[260px] overflow-y-auto">
+                  <h4 className="font-extrabold text-slate-850 dark:text-white uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800 pb-2 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500" /> Profile Twin Summary
+                  </h4>
                   
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 text-xs font-semibold text-slate-700 dark:text-slate-350">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5 text-xs font-semibold text-slate-705 dark:text-slate-350">
                     <div>
-                      <span className="text-[10px] text-slate-450 uppercase block font-bold">Full Name</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{firstName} {lastName}</strong>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase block font-bold">Full Name</span>
+                      <strong className="text-slate-850 dark:text-slate-200">{firstName} {lastName}</strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-450 uppercase block font-bold">Employee Code</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{employeeCode || 'N/A'}</strong>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase block font-bold">Employee Code</span>
+                      <strong className="text-slate-850 dark:text-slate-200">{employeeCode || 'N/A'}</strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-450 uppercase block font-bold">Work Email</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{workEmail}</strong>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase block font-bold">Work Email</span>
+                      <strong className="text-slate-850 dark:text-slate-200">{workEmail}</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Date of Joining</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{dateOfJoining || 'N/A'}</strong>
+                      <strong className="text-slate-850 dark:text-slate-200">{dateOfJoining || 'N/A'}</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Work Mode</span>
-                      <strong className="text-slate-850 dark:text-slate-205 uppercase">{workMode}</strong>
+                      <strong className="text-slate-850 dark:text-slate-200 uppercase">{workMode}</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">PAN ID</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{panNumber || 'N/A'}</strong>
+                      <strong className="text-slate-850 dark:text-slate-200">{panNumber || 'N/A'}</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Bank details</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{bankName || 'N/A'} ({bankAccountNumber || 'N/A'})</strong>
+                      <strong className="text-slate-850 dark:text-slate-200">{bankName || 'N/A'} ({bankAccountNumber || 'N/A'})</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Buddy Link</span>
-                      <strong className="text-slate-850 dark:text-slate-205">
+                      <strong className="text-slate-850 dark:text-slate-200">
                         {buddyId ? (existingEmployees || []).find((e: any) => e.id === buddyId)?.displayName || 'Assigned' : 'N/A'}
                       </strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Mentor Link</span>
-                      <strong className="text-slate-850 dark:text-slate-205">
+                      <strong className="text-slate-850 dark:text-slate-200">
                         {mentorId ? (existingEmployees || []).find((e: any) => e.id === mentorId)?.displayName || 'Assigned' : 'N/A'}
                       </strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Skills Cloud</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{skillsList.length} skills added</strong>
+                      <strong className="text-slate-850 dark:text-slate-200">{skillsList.length} skills added</strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Documents Vault</span>
-                      <strong className="text-slate-850 dark:text-slate-205">{documentsList.length} files attached</strong>
+                      <strong className="text-slate-850 dark:text-slate-200">{documentsList.length} files attached</strong>
                     </div>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-450 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3">
+                <p className="text-[11px] text-slate-450 dark:text-slate-500 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3">
                   By clicking Onboard Employee Twin, you will commit this record to the platform's immutable Single Source of Truth. Transaction audit trails and lifecycle timelines will be initialized automatically.
                 </p>
               </div>
@@ -1063,29 +1317,29 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
         </div>
 
         {/* Sticky Action Footer */}
-        <div className="px-8 py-4 bg-white dark:bg-[#0B0F19] border-t border-slate-200 dark:border-slate-800 flex justify-between shrink-0">
+        <div className="px-8 py-4 bg-white dark:bg-[#0F131F] border-t border-slate-200 dark:border-slate-800 flex justify-between shrink-0">
           <button 
             onClick={handlePrev}
             disabled={step === 1}
-            className="px-5 py-2 rounded-lg text-xs font-semibold text-slate-650 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 disabled:pointer-events-none"
+            className="px-5 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-650 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 transition-all text-slate-805 dark:text-white"
           >
-            Back
+            <ChevronLeft className="w-4 h-4" /> Back
           </button>
           
           {step < 8 ? (
             <button 
               onClick={handleNext}
-              className="bg-[#18181B] hover:bg-[#27272A] dark:bg-indigo-650 dark:hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-sm"
+              className="bg-[#5D69F4] hover:bg-[#4C57DF] text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-[0_4px_12px_rgba(93,105,244,0.2)] flex items-center gap-1.5"
             >
-              Continue
+              Continue <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button 
               onClick={handleSubmit}
               disabled={isLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-xs font-bold transition-all shadow-[0_4px_12px_rgba(16,185,129,0.2)] disabled:opacity-50 flex items-center gap-1.5"
             >
-              {isLoading ? 'Onboarding...' : 'Onboard Employee Twin'}
+              {isLoading ? 'Onboarding...' : 'Onboard Employee Twin'} <Check className="w-4 h-4" />
             </button>
           )}
         </div>
