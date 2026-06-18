@@ -1,5 +1,6 @@
 package com.managemyopz.orgdna.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.managemyopz.shared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -17,5 +18,6 @@ public class Band extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
+    @JsonIgnore
     private Organization organization;
 }

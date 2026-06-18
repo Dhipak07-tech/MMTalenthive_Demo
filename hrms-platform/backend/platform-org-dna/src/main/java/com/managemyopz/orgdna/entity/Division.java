@@ -1,5 +1,6 @@
 package com.managemyopz.orgdna.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.managemyopz.shared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -18,6 +19,7 @@ public class Division extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_unit_id", nullable = false)
+    @JsonIgnore
     private BusinessUnit businessUnit;
 
     @OneToMany(mappedBy = "division", cascade = CascadeType.ALL, orphanRemoval = true)
