@@ -25,12 +25,17 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
 
     private final EmployeeTwinRepository repository;
     private final EventPublisher eventPublisher;
+    private final EmployeeCodeGeneratorService codeGeneratorService;
 
     @Override
     @Transactional
     public EmployeeTwin createEmployee(EmployeeTwin employee, String triggeredBy) {
         String tenantId = TenantContext.getCurrentTenant();
         employee.setTenantId(tenantId);
+        
+        // Generate employee code automatically
+        String generatedCode = codeGeneratorService.generateEmployeeCode(employee.getOrganizationId());
+        employee.setEmployeeCode(generatedCode);
         
         if (employee.getSkills() != null) {
             for (com.managemyopz.twin.entity.EmployeeSkill s : employee.getSkills()) {

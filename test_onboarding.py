@@ -55,7 +55,7 @@ def run_test():
         "gender": "MALE",
         "dateOfBirth": "1992-04-15",
         
-        "employeeCode": f"EMP-{emp_suffix}",
+        "organizationId": "6841af62-9c16-431b-a8c2-a3adba1dc47a",
         "dateOfJoining": "2026-07-01",
         "department": "Engineering",
         "designation": "Staff Software Engineer",
@@ -114,6 +114,7 @@ def run_test():
             print("Success Message:", resp_data.get("message"))
             created_employee = resp_data.get("data")
             print("Created Digital Twin ID:", created_employee.get("id"))
+            print("System Generated Employee Code:", created_employee.get("employeeCode"))
     except urllib.error.HTTPError as err:
         print(f"Onboarding failed with HTTP status: {err.code}")
         print(err.read().decode('utf-8'))
@@ -140,10 +141,10 @@ def run_test():
             # Check if our created employee is in the registry
             found = False
             for emp in employees:
-                if emp.get("employeeCode") == f"EMP-{emp_suffix}":
+                if emp.get("id") == created_employee.get("id"):
                     print(f"\n[SUCCESS] Found newly onboarded employee twin in the registry!")
                     print(f"  Name: {emp.get('firstName')} {emp.get('lastName')}")
-                    print(f"  Code: {emp.get('employeeCode')}")
+                    print(f"  Generated Code: {emp.get('employeeCode')}")
                     print(f"  Email: {emp.get('workEmail')}")
                     print(f"  PAN: {emp.get('pan')}")
                     print(f"  Aadhaar: {emp.get('aadhaar')}")

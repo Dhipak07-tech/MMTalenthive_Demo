@@ -44,8 +44,8 @@ public class OnboardingController {
         String actor = principal != null ? principal.getName() : "system";
         String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "default";
 
-        log.info("Starting onboarding orchestration for employee Code: {}, Email: {} by actor: {}", 
-                 employee.getEmployeeCode(), employee.getWorkEmail(), actor);
+        log.info("Starting onboarding orchestration for employee Email: {} by actor: {}", 
+                 employee.getWorkEmail(), actor);
 
         // 1. Create Employee Twin (Saves twin, nested collections, and publishes EmployeeCreatedEvent)
         EmployeeTwin createdTwin = twinService.createEmployee(employee, actor);
@@ -53,12 +53,12 @@ public class OnboardingController {
         // 2. Create User Account
         User user = new User();
         user.setTenantId(tenant);
-        String username = employee.getEmployeeCode().toLowerCase();
+        String username = createdTwin.getEmployeeCode().toLowerCase();
         user.setUsername(username);
-        user.setEmail(employee.getWorkEmail());
+        user.setEmail(createdTwin.getWorkEmail());
         user.setPasswordHash(passwordEncoder.encode("Password123!"));
-        user.setFirstName(employee.getFirstName());
-        user.setLastName(employee.getLastName());
+        user.setFirstName(createdTwin.getFirstName());
+        user.setLastName(createdTwin.getLastName());
         user.setEmployeeId(createdTwin.getId().toString());
         user.setActive(true);
 
