@@ -328,19 +328,6 @@ export function PlatformLayout() {
 
           {/* Quick Actions & Profile */}
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => {}}
-              className="bg-[#2DD4BF] hover:bg-[#14B8A6] text-white font-extrabold rounded-full px-4.5 py-1.5 text-[11px] shadow-sm transition-all active:scale-[0.98]"
-            >
-              Get started
-            </button>
-
-            <button 
-              onClick={() => navigate('/employees')} 
-              className="bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-extrabold rounded-full px-4.5 py-1.5 text-[11px] shadow-sm transition-all active:scale-[0.98]"
-            >
-              + New Ticket
-            </button>
 
             <button className="relative p-1.5 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-850/60 border border-slate-200/40 dark:border-transparent rounded-lg transition-colors">
               <Bell className="w-4.5 h-4.5" />
@@ -427,13 +414,7 @@ export function PlatformLayout() {
           </div>
         </header>
 
-        {/* Soft notice banner */}
-        <div className="bg-[#E0FAFB] dark:bg-[#0f2d2b] border-b border-[#A2EBE4] dark:border-[#1d5c58] text-[#0f5450] dark:text-[#6ee7b7] py-2.5 px-6 flex items-center justify-between text-[11px] font-extrabold tracking-tight shrink-0 shadow-sm">
-          <div className="flex-1 text-center">
-            Please confirm your email address to finish setting up your account.
-          </div>
-          <button className="text-[#0f5450] dark:text-[#6ee7b7] hover:opacity-85 font-bold text-sm">&times;</button>
-        </div>
+
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
