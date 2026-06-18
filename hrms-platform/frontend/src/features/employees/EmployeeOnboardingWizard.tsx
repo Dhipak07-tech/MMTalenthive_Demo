@@ -626,16 +626,29 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Employee Code</label>
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold flex items-center gap-1.5">
+                      Employee Code
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold uppercase">Auto</span>
+                    </label>
                     <div className="relative">
-                      <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
                       <input 
                         type="text" 
-                        value="Will be generated automatically"
+                        value={selectedOrg 
+                          ? `${((orgs || []).find((o: any) => o.id === selectedOrg)?.code || 'ORG').toUpperCase()}-EMP-XXXXXX`
+                          : 'Select an organization first'
+                        }
                         disabled
                         readOnly
-                        className="bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-semibold text-slate-450 dark:text-slate-500 cursor-not-allowed"
+                        className={`border rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-bold cursor-not-allowed ${
+                          selectedOrg 
+                            ? 'bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-mono tracking-wider'
+                            : 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500'
+                        }`}
                       />
+                      {selectedOrg && (
+                        <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500" />
+                      )}
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -1314,7 +1327,11 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase block font-bold">Employee Code</span>
-                      <strong className="text-slate-850 dark:text-slate-200">{employeeCode || 'N/A'}</strong>
+                      <strong className="text-indigo-600 dark:text-indigo-400 font-mono">
+                        {selectedOrg 
+                          ? `${((orgs || []).find((o: any) => o.id === selectedOrg)?.code || 'ORG').toUpperCase()}-EMP-XXXXXX`
+                          : 'Pending — Select Org'}
+                      </strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase block font-bold">Work Email</span>
