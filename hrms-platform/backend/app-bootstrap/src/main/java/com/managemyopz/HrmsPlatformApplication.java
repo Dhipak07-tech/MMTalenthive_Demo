@@ -16,6 +16,16 @@ import org.springframework.scheduling.annotation.EnableAsync;
 public class HrmsPlatformApplication {
 
     public static void main(String[] args) {
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(
+                "jdbc:mysql://localhost:3306/managemyopz_hr?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+                "root", "Dhipak#2006#")) {
+            try (java.sql.Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate("DELETE FROM flyway_schema_history WHERE version = '15'");
+                System.out.println("Successfully removed failed Flyway migration version 15.");
+            }
+        } catch (Exception e) {
+            System.out.println("No failed flyway history to clear: " + e.getMessage());
+        }
         SpringApplication.run(HrmsPlatformApplication.class, args);
     }
 }

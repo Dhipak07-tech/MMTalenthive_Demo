@@ -22,7 +22,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PlatformException.class)
     public ResponseEntity<ApiResponse<Void>> handlePlatformException(PlatformException ex) {
         log.error("Platform error: code={}, message={}", ex.getErrorCode(), ex.getMessage());
-        ApiResponse<Void> response = ApiResponse.error(ex.getHttpStatus().value(), ex.getMessage());
+        java.util.Map<String, String> errorsMap = null;
+        if (ex.getDetails() instanceof java.util.Map) {
+            errorsMap = (java.util.Map<String, String>) ex.getDetails();
+        }
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .status(ex.getHttpStatus().value())
+                .errorCode(ex.getErrorCode())
+                .message(ex.getMessage())
+                .errors(errorsMap)
+                .timestamp(java.time.Instant.now())
+                .build();
         return ResponseEntity.status(ex.getHttpStatus()).body(response);
     }
 
@@ -46,8 +57,19 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
-        log.warn("Access denied: {}", ex.getMessage());
-        ApiResponse<Void> response = ApiResponse.error(403, "Access denied: " + ex.getMessage());
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String username = (auth != null) ? auth.getName() : "anonymous";
+        String authorities = (auth != null) ? auth.getAuthorities().toString() : "[]";
+        String message = String.format("Access denied for user '%s' with authorities %s. Request details: %s", username, authorities, ex.getMessage());
+        log.warn("Access denied error: {}", message);
+        
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .status(HttpStatus.FORBIDDEN.value())
+                .errorCode("ACCESS_DENIED")
+                .message(message)
+                .timestamp(java.time.Instant.now())
+                .build();
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 

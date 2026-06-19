@@ -23,7 +23,34 @@ export const authApi = platformApi.injectEndpoints({
         method: 'POST',
       }),
     }),
+    activate: builder.mutation<void, any>({
+      query: (body) => ({
+        url: '/v1/auth/activate',
+        method: 'POST',
+        body,
+      }),
+    }),
+    forgotPassword: builder.mutation<void, any>({
+      query: (body) => ({
+        url: '/v1/auth/forgot-password',
+        method: 'POST',
+        body,
+      }),
+    }),
+    resetPassword: builder.mutation<void, any>({
+      query: (body) => ({
+        url: '/v1/auth/reset-password',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
-export const { useLoginMutation, useLogoutBackendMutation } = authApi;
+export const {
+  useLoginMutation,
+  useLogoutBackendMutation,
+  useActivateMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+} = authApi;

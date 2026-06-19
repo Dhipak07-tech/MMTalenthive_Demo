@@ -33,6 +33,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final AuditService auditService;
     private final HttpServletRequest request;
+    private final com.managemyopz.security.service.UserProvisioningService userProvisioningService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {
@@ -58,16 +59,75 @@ public class AuthController {
             }
         }
 
-        if (userOpt.isEmpty() || !passwordEncoder.matches(password, userOpt.get().getPasswordHash())) {
+        if (userOpt.isEmpty()) {
+            log.warn("Login failed: User not found for email: {}", email);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "message", "Invalid email or password"
+            ));
+        }
+
+        User user = userOpt.get();
+
+        // Check account lock/status
+        if ("LOCKED".equals(user.getStatus()) || user.isLocked()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false,
+                    "message", "User account is locked. Please contact HR."
+            ));
+        }
+
+        if ("DISABLED".equals(user.getStatus()) || !user.isActive()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false,
+                    "message", "User account is disabled."
+            ));
+        }
+
+        if ("PENDING_ACTIVATION".equals(user.getStatus())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false,
+                    "message", "User account is pending activation. Please activate your account first."
+            ));
+        }
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            int attempts = user.getFailedLoginAttempts() + 1;
+            user.setFailedLoginAttempts(attempts);
+            if (attempts >= 5) {
+                user.setStatus("LOCKED");
+                user.setLocked(true);
+                userRepository.save(user);
+
+                auditService.recordAudit(
+                        user.getTenantId(),
+                        "SECURITY",
+                        "USER",
+                        user.getId().toString(),
+                        AuditLog.AuditAction.ACCOUNT_LOCKED,
+                        null,
+                        Map.of("email", user.getEmail(), "reason", "Max failed attempts"),
+                        null,
+                        "system",
+                        "SYSTEM"
+                );
+
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "success", false,
+                        "message", "Account locked due to 5 consecutive failed login attempts."
+                ));
+            }
+            userRepository.save(user);
+
             log.warn("Failed login attempt for email: {}", email);
             auditService.recordAudit(
-                    "SYSTEM",
+                    user.getTenantId(),
                     "SECURITY",
                     "USER",
-                    null,
+                    user.getId().toString(),
                     AuditLog.AuditAction.LOGIN_FAILED,
                     null,
-                    Map.of("email", email != null ? email : "", "ip", ipAddress, "reason", "Invalid credentials"),
+                    Map.of("email", email != null ? email : "", "ip", ipAddress, "reason", "Invalid credentials", "attempts", attempts),
                     null,
                     email != null ? email : "unknown",
                     "GUEST"
@@ -78,13 +138,9 @@ public class AuthController {
             ));
         }
 
-        User user = userOpt.get();
-        if (!user.isActive()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                    "success", false,
-                    "message", "User account is inactive"
-            ));
-        }
+        // Reset attempts
+        user.setFailedLoginAttempts(0);
+        userRepository.save(user);
 
         // Bind the current thread-local context to the logged-in user's tenant ID
         TenantContext.setCurrentTenant(user.getTenantId());
@@ -320,6 +376,59 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/activate")
+    public ResponseEntity<?> activate(@RequestBody ActivateRequest req) {
+        String originalTenant = TenantContext.getCurrentTenant();
+        TenantContext.setCurrentTenant(null);
+        try {
+            userProvisioningService.activateAccount(req.getToken(), req.getPassword());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Account activated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } finally {
+            if (originalTenant != null) {
+                TenantContext.setCurrentTenant(originalTenant);
+            }
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest req) {
+        String originalTenant = TenantContext.getCurrentTenant();
+        TenantContext.setCurrentTenant(null);
+        try {
+            userProvisioningService.forgotPassword(req.getEmail());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Password reset email sent successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } finally {
+            if (originalTenant != null) {
+                TenantContext.setCurrentTenant(originalTenant);
+            }
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+        String originalTenant = TenantContext.getCurrentTenant();
+        TenantContext.setCurrentTenant(null);
+        try {
+            userProvisioningService.resetPassword(req.getToken(), req.getPassword());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Password reset successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } finally {
+            if (originalTenant != null) {
+                TenantContext.setCurrentTenant(originalTenant);
+            }
+        }
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(@RequestBody RefreshRequest req) {
+        return refresh(req);
+    }
+
     private String getClientIp(HttpServletRequest req) {
         String xfHeader = req.getHeader("X-Forwarded-For");
         if (xfHeader == null) {
@@ -337,6 +446,23 @@ public class AuthController {
     @Data
     public static class RefreshRequest {
         private String refreshToken;
+    }
+
+    @Data
+    public static class ActivateRequest {
+        private String token;
+        private String password;
+    }
+
+    @Data
+    public static class ForgotPasswordRequest {
+        private String email;
+    }
+
+    @Data
+    public static class ResetPasswordRequest {
+        private String token;
+        private String password;
     }
 
     @Data

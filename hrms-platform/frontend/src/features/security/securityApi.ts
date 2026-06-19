@@ -9,6 +9,8 @@ export interface User {
   employeeId: string | null;
   active: boolean;
   roles: Role[];
+  status?: string;
+  locked?: boolean;
 }
 
 export interface Role {
@@ -81,6 +83,33 @@ export const securityApi = platformApi.injectEndpoints({
       }),
       transformResponse: (response: { data: TokenResponse }) => response.data,
     }),
+    lockUser: builder.mutation<void, string>({
+      query: (userId) => ({
+        url: `/v1/security/users/${userId}/lock`,
+        method: 'PUT',
+      }),
+      invalidatesTags: ['User'],
+    }),
+    unlockUser: builder.mutation<void, string>({
+      query: (userId) => ({
+        url: `/v1/security/users/${userId}/unlock`,
+        method: 'PUT',
+      }),
+      invalidatesTags: ['User'],
+    }),
+    resendActivation: builder.mutation<void, string>({
+      query: (userId) => ({
+        url: `/v1/security/users/${userId}/resend-activation`,
+        method: 'POST',
+      }),
+    }),
+    adminResetPassword: builder.mutation<void, { userId: string; password?: string }>({
+      query: ({ userId, password }) => ({
+        url: `/v1/security/users/${userId}/reset-password`,
+        method: 'PUT',
+        body: { password },
+      }),
+    }),
   }),
 });
 
@@ -92,4 +121,8 @@ export const {
   useGetRolesQuery,
   useGetPermissionsQuery,
   useGenerateTokenMutation,
+  useLockUserMutation,
+  useUnlockUserMutation,
+  useResendActivationMutation,
+  useAdminResetPasswordMutation,
 } = securityApi;

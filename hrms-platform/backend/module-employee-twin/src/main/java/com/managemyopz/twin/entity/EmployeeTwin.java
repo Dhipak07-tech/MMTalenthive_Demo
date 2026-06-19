@@ -134,8 +134,26 @@ public class EmployeeTwin extends BaseEntity {
     @Column(name = "employment_type_id")
     private UUID employmentTypeId;
 
+    @Column(name = "position_id")
+    private UUID positionId;
+
     @Column(name = "manager_id")
     private UUID managerId; // Self-referencing to another EmployeeTwin
+
+    @Column(name = "skip_manager_id")
+    private UUID skipManagerId;
+
+    @Column(name = "department_head_id")
+    private UUID departmentHeadId;
+
+    @Column(name = "hrbp_id")
+    private UUID hrbpId;
+
+    @Column(name = "mentor_id")
+    private UUID mentorId;
+
+    @Column(name = "buddy_id")
+    private UUID buddyId;
 
     @Column(name = "date_of_joining")
     private LocalDate dateOfJoining;

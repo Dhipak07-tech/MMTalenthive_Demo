@@ -5,7 +5,7 @@ import {
   MapPin, Clock, Briefcase, ChevronRight, Activity, AlertCircle
 } from 'lucide-react';
 import { useGetEmployeesQuery } from '../employees/employeesApi';
-import { useGetOrganizationsQuery } from '../org-dna/orgDnaApi';
+import { useGetOrganizationsQuery, useGetDnaAnalyticsQuery } from '../org-dna/orgDnaApi';
 import { useGetUsersQuery } from '../security/securityApi';
 import { useAppSelector } from '../../app/hooks';
 
@@ -18,14 +18,41 @@ export function Dashboard() {
   const { data: rawEmployees, isLoading: loadingEmployees } = useGetEmployeesQuery();
   const { data: organizations, isLoading: loadingOrgs } = useGetOrganizationsQuery();
   const { data: users, isLoading: loadingUsers } = useGetUsersQuery();
+  const { data: dnaAnalytics, isLoading: loadingDna } = useGetDnaAnalyticsQuery();
 
-  const employees = (rawEmployees || []).map((emp: any) => ({
-    ...emp,
-    displayName: emp.displayName || `${emp.firstName} ${emp.lastName}`,
-    department: emp.department || emp.departmentId || 'Frontend Engineering',
-    location: emp.location || emp.locationId || 'San Francisco, CA',
-    designation: emp.designation || emp.designationId || 'Senior Staff Engineer'
-  }));
+  const employees = (rawEmployees || []).map((emp: any) => {
+    let deptName = emp.department;
+    if (dnaAnalytics?.departmentNames && emp.departmentId) {
+      deptName = dnaAnalytics.departmentNames[emp.departmentId] || `Unknown Department (${emp.departmentId})`;
+    }
+    if (!deptName && emp.departmentId) {
+      deptName = `Unknown Department (${emp.departmentId})`;
+    }
+
+    let locName = emp.location;
+    if (dnaAnalytics?.locationNames && emp.locationId) {
+      locName = dnaAnalytics.locationNames[emp.locationId] || `Unknown Location (${emp.locationId})`;
+    }
+    if (!locName && emp.locationId) {
+      locName = `Unknown Location (${emp.locationId})`;
+    }
+
+    let desigName = emp.designation;
+    if (dnaAnalytics?.designationNames && emp.designationId) {
+      desigName = dnaAnalytics.designationNames[emp.designationId] || `Unknown Designation (${emp.designationId})`;
+    }
+    if (!desigName && emp.designationId) {
+      desigName = `Unknown Designation (${emp.designationId})`;
+    }
+
+    return {
+      ...emp,
+      displayName: emp.displayName || `${emp.firstName} ${emp.lastName}`,
+      department: deptName || 'Unassigned',
+      location: locName || 'Remote',
+      designation: desigName || 'Senior Staff Engineer'
+    };
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 60000);
@@ -57,34 +84,48 @@ export function Dashboard() {
   };
 
   // Dynamic Data Calculation
-  const totalEmployeesCount = employees?.length || 0;
+  const totalEmployeesCount = dnaAnalytics?.totalEmployees ?? (employees?.length || 0);
   const activeTwinsCount = employees?.filter(e => e.employmentStatus === 'ACTIVE').length || 0;
-  const totalOrgsCount = organizations?.length || 0;
+  const totalOrgsCount = dnaAnalytics?.totalDnaNodes ?? (organizations?.length || 0);
   const totalUsersCount = users?.length || 0;
 
   // Department Distribution
-  const departmentCounts: Record<string, number> = {};
-  employees?.forEach(emp => {
-    const dept = emp.department || 'Unassigned';
-    departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
-  });
-  const departmentStats = Object.entries(departmentCounts).map(([name, count]) => ({
-    name,
-    count,
-    percentage: totalEmployeesCount > 0 ? Math.round((count / totalEmployeesCount) * 100) : 0
-  })).sort((a, b) => b.count - a.count);
+  const departmentStats = dnaAnalytics?.departmentBreakdown
+    ? dnaAnalytics.departmentBreakdown.map(dept => ({
+        name: dept.departmentName,
+        count: dept.employeeCount,
+        percentage: dept.percentage
+      }))
+    : Object.entries(
+        (employees || []).reduce((acc: Record<string, number>, emp: any) => {
+          const dept = emp.department || 'Unassigned';
+          acc[dept] = (acc[dept] || 0) + 1;
+          return acc;
+        }, {})
+      ).map(([name, count]) => ({
+        name,
+        count,
+        percentage: totalEmployeesCount > 0 ? Math.round((count / totalEmployeesCount) * 100) : 0
+      })).sort((a, b) => b.count - a.count);
 
   // Location Distribution
-  const locationCounts: Record<string, number> = {};
-  employees?.forEach(emp => {
-    const loc = emp.location || 'Remote';
-    locationCounts[loc] = (locationCounts[loc] || 0) + 1;
-  });
-  const locationStats = Object.entries(locationCounts).map(([name, count]) => ({
-    name,
-    count,
-    percentage: totalEmployeesCount > 0 ? Math.round((count / totalEmployeesCount) * 100) : 0
-  })).sort((a, b) => b.count - a.count);
+  const locationStats = dnaAnalytics?.locationBreakdown
+    ? dnaAnalytics.locationBreakdown.map(loc => ({
+        name: loc.locationName,
+        count: loc.employeeCount,
+        percentage: loc.percentage
+      }))
+    : Object.entries(
+        (employees || []).reduce((acc: Record<string, number>, emp: any) => {
+          const loc = emp.location || 'Remote';
+          acc[loc] = (acc[loc] || 0) + 1;
+          return acc;
+        }, {})
+      ).map(([name, count]) => ({
+        name,
+        count,
+        percentage: totalEmployeesCount > 0 ? Math.round((count / totalEmployeesCount) * 100) : 0
+      })).sort((a, b) => b.count - a.count);
 
   // Employment Status counts
   const statusCounts = {
@@ -170,7 +211,7 @@ export function Dashboard() {
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider block">Total DNA Nodes</span>
-              {loadingOrgs ? (
+              {loadingDna || loadingOrgs ? (
                 <div className="h-8 w-16 bg-slate-100 dark:bg-slate-800 rounded animate-pulse mt-2" />
               ) : (
                 <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">{totalOrgsCount}</p>
@@ -180,8 +221,11 @@ export function Dashboard() {
               <Building2 className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-[10px] text-slate-450 font-semibold mt-3">
-            Registered organization structures
+          <div className="text-[10px] text-slate-450 font-semibold mt-3 flex items-center gap-1.5">
+            <span className="text-indigo-650 dark:text-indigo-400 font-bold">
+              {dnaAnalytics?.dnaIntegrityPercentage ?? 100}%
+            </span>
+            <span>DNA Health Integrity</span>
           </div>
         </div>
 
@@ -206,7 +250,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Main Analytics Breakdown Workspace */}
+      {/* Main Analytics Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Left Side: Department & Location DNA */}
@@ -219,7 +263,7 @@ export function Dashboard() {
               Departmental Headcount Breakdown
             </h3>
 
-            {loadingEmployees ? (
+            {loadingDna || loadingEmployees ? (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="h-8 bg-slate-50 dark:bg-slate-900 rounded animate-pulse" />
@@ -256,7 +300,7 @@ export function Dashboard() {
               Geographic Workplaces DNA
             </h3>
 
-            {loadingEmployees ? (
+            {loadingDna || loadingEmployees ? (
               <div className="space-y-4">
                 {[1, 2].map(i => (
                   <div key={i} className="h-8 bg-slate-50 dark:bg-slate-900 rounded animate-pulse" />
@@ -371,6 +415,78 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* DNA Integrity Diagnostics (Show only if orphans exist) */}
+      {dnaAnalytics && (
+        (dnaAnalytics.orphanBusinessUnitEmployees && dnaAnalytics.orphanBusinessUnitEmployees.length > 0) ||
+        (dnaAnalytics.orphanDepartmentEmployees && dnaAnalytics.orphanDepartmentEmployees.length > 0) ||
+        (dnaAnalytics.orphanTeamEmployees && dnaAnalytics.orphanTeamEmployees.length > 0) ||
+        (dnaAnalytics.orphanOrganizationEmployees && dnaAnalytics.orphanOrganizationEmployees.length > 0)
+      ) && (
+        <div className="bg-red-50/20 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/30 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-2 text-red-650 dark:text-red-400">
+            <AlertCircle className="w-5 h-5" />
+            <h3 className="text-xs font-bold uppercase tracking-wider">DNA Data Integrity Diagnostics</h3>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            The following digital twins reference soft-deleted or non-existent DNA nodes. Remediate their profiles in the directory.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {dnaAnalytics.orphanDepartmentEmployees && dnaAnalytics.orphanDepartmentEmployees.length > 0 && (
+              <div className="bg-white dark:bg-[#0B0F19] p-4 rounded-xl border border-slate-200/60 dark:border-slate-850">
+                <h4 className="text-xs font-bold text-red-500 dark:text-red-400 mb-2 flex justify-between">
+                  <span>Orphan Departments</span>
+                  <span className="bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded text-[10px]">{dnaAnalytics.orphanDepartmentEmployees.length}</span>
+                </h4>
+                <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 max-h-[120px] overflow-y-auto pr-1">
+                  {dnaAnalytics.orphanDepartmentEmployees.map((emp, i) => (
+                    <li key={i} className="font-mono bg-slate-50 dark:bg-slate-900/40 p-1.5 rounded">{emp}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dnaAnalytics.orphanBusinessUnitEmployees && dnaAnalytics.orphanBusinessUnitEmployees.length > 0 && (
+              <div className="bg-white dark:bg-[#0B0F19] p-4 rounded-xl border border-slate-200/60 dark:border-slate-850">
+                <h4 className="text-xs font-bold text-red-500 dark:text-red-400 mb-2 flex justify-between">
+                  <span>Orphan Business Units</span>
+                  <span className="bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded text-[10px]">{dnaAnalytics.orphanBusinessUnitEmployees.length}</span>
+                </h4>
+                <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 max-h-[120px] overflow-y-auto pr-1">
+                  {dnaAnalytics.orphanBusinessUnitEmployees.map((emp, i) => (
+                    <li key={i} className="font-mono bg-slate-50 dark:bg-slate-900/40 p-1.5 rounded">{emp}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dnaAnalytics.orphanTeamEmployees && dnaAnalytics.orphanTeamEmployees.length > 0 && (
+              <div className="bg-white dark:bg-[#0B0F19] p-4 rounded-xl border border-slate-200/60 dark:border-slate-850">
+                <h4 className="text-xs font-bold text-red-500 dark:text-red-400 mb-2 flex justify-between">
+                  <span>Orphan Teams/Sub-departments</span>
+                  <span className="bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded text-[10px]">{dnaAnalytics.orphanTeamEmployees.length}</span>
+                </h4>
+                <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 max-h-[120px] overflow-y-auto pr-1">
+                  {dnaAnalytics.orphanTeamEmployees.map((emp, i) => (
+                    <li key={i} className="font-mono bg-slate-50 dark:bg-slate-900/40 p-1.5 rounded">{emp}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dnaAnalytics.orphanOrganizationEmployees && dnaAnalytics.orphanOrganizationEmployees.length > 0 && (
+              <div className="bg-white dark:bg-[#0B0F19] p-4 rounded-xl border border-slate-200/60 dark:border-slate-850">
+                <h4 className="text-xs font-bold text-red-500 dark:text-red-400 mb-2 flex justify-between">
+                  <span>Orphan Organizations</span>
+                  <span className="bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded text-[10px]">{dnaAnalytics.orphanOrganizationEmployees.length}</span>
+                </h4>
+                <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 max-h-[120px] overflow-y-auto pr-1">
+                  {dnaAnalytics.orphanOrganizationEmployees.map((emp, i) => (
+                    <li key={i} className="font-mono bg-slate-50 dark:bg-slate-900/40 p-1.5 rounded">{emp}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modern Directory / Onboarded Twins preview */}
       <div className="bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 rounded-2xl p-6 shadow-sm">

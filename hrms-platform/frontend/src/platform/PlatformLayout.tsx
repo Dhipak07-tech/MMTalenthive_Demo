@@ -6,8 +6,9 @@ import {
   LayoutDashboard, Users, Calendar, Award, Building2, Shield, FileText,
   Bell, Settings, ChevronLeft, ChevronRight, ChevronDown, Search, Moon, Sun,
   BarChart3, LogOut, Command, CreditCard,
-  GitPullRequest, User, AlertCircle
+  GitPullRequest, User, AlertCircle, ClipboardCheck
 } from 'lucide-react';
+import { useTheme } from '../app/ThemeContext';
 import clsx from 'clsx';
 
 interface NavItem {
@@ -55,6 +56,7 @@ const getNavigationForRole = (role: string): NavEntry[] => {
           section: 'WORKFORCE OPS',
           items: [
             { name: 'Leave Management', icon: Calendar, path: '/leave' },
+            { name: 'My Approvals', icon: ClipboardCheck, path: '/approvals' },
             { name: 'Recognition', icon: Award, path: '/recognition' },
             { name: 'Analytics', icon: BarChart3, path: '/analytics' },
           ]
@@ -73,6 +75,7 @@ const getNavigationForRole = (role: string): NavEntry[] => {
           section: 'WORKFORCE OPS',
           items: [
             { name: 'Leave Management', icon: Calendar, path: '/leave' },
+            { name: 'My Approvals', icon: ClipboardCheck, path: '/approvals' },
             { name: 'Recognition', icon: Award, path: '/recognition' },
             { name: 'Documents', icon: FileText, path: '/documents' },
           ]
@@ -96,7 +99,8 @@ const getNavigationForRole = (role: string): NavEntry[] => {
 
 export function PlatformLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const darkMode = theme === 'dark';
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   // Inactivity Timer State
@@ -335,7 +339,7 @@ export function PlatformLayout() {
             </button>
 
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={toggleTheme}
               className="p-1.5 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-850/60 border border-slate-200/40 dark:border-transparent rounded-lg transition-colors"
             >
               {darkMode ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}

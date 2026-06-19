@@ -33,10 +33,18 @@ public class SecurityController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.managemyopz.security.service.UserProvisioningService userProvisioningService;
 
     @GetMapping("/users")
     public ApiResponse<List<User>> listUsers() {
         return ApiResponse.success(userRepository.findAll());
+    }
+
+    @GetMapping("/users/{id}")
+    public ApiResponse<User> getUserById(@PathVariable UUID id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return ApiResponse.success(user);
     }
 
     @PostMapping("/users")
@@ -164,6 +172,39 @@ public class SecurityController {
         response.setEmployeeId(employeeId);
 
         return ApiResponse.success(response, "Token generated successfully");
+    }
+
+    @PutMapping("/users/{id}/lock")
+    public ApiResponse<Void> lockUser(@PathVariable UUID id, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        userProvisioningService.lockAccount(id, actor);
+        return ApiResponse.success(null, "User locked successfully");
+    }
+
+    @PutMapping("/users/{id}/unlock")
+    public ApiResponse<Void> unlockUser(@PathVariable UUID id, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        userProvisioningService.unlockAccount(id, actor);
+        return ApiResponse.success(null, "User unlocked successfully");
+    }
+
+    @PutMapping("/users/{id}/reset-password")
+    public ApiResponse<Void> resetUserPassword(@PathVariable UUID id, @RequestBody AdminPasswordResetRequest req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        userProvisioningService.forcePasswordReset(id, req.getPassword(), actor);
+        return ApiResponse.success(null, "User password reset forced successfully");
+    }
+
+    @PostMapping("/users/{id}/resend-activation")
+    public ApiResponse<Void> resendActivation(@PathVariable UUID id, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        userProvisioningService.resendActivationEmail(id, actor);
+        return ApiResponse.success(null, "Activation email resent successfully");
+    }
+
+    @Data
+    public static class AdminPasswordResetRequest {
+        private String password;
     }
 
     @Data

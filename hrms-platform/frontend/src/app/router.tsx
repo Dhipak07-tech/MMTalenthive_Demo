@@ -7,6 +7,9 @@ import { LeaveScreen } from '../features/leave/LeaveScreen';
 import { RecognitionScreen } from '../features/recognition/RecognitionScreen';
 import { SecurityScreen } from '../features/security/SecurityScreen';
 import { Login } from '../features/auth/Login';
+import { ActivateAccount } from '../features/auth/ActivateAccount';
+import { ForgotPassword } from '../features/auth/ForgotPassword';
+import { ResetPassword } from '../features/auth/ResetPassword';
 import { ProtectedRoute } from '../features/auth/ProtectedRoute';
 import { RoleGuard } from '../features/auth/RoleGuard';
 import { PlatformDashboard } from '../features/dashboard/PlatformDashboard';
@@ -14,6 +17,7 @@ import { MyProfileScreen } from '../features/employees/MyProfileScreen';
 import { OnboardingDashboard } from '../features/employees/OnboardingDashboard';
 import { EmployeeOnboardingWizard } from '../features/employees/EmployeeOnboardingWizard';
 import { MockScreen } from '../features/dashboard/MockScreen';
+import { ApprovalsScreen } from '../features/workflow/ApprovalsScreen';
 import { CreditCard, ShieldAlert, FileText, Settings, HelpCircle, GitPullRequest } from 'lucide-react';
 
 /**
@@ -26,6 +30,18 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '/activate-account',
+    element: <ActivateAccount />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPassword />,
+  },
+  {
+    path: '/reset-password',
+    element: <ResetPassword />,
   },
   {
     path: '/',
@@ -92,7 +108,7 @@ export const router = createBrowserRouter([
       {
         path: 'leave',
         element: (
-          <RoleGuard minRole="ROLE_ADMIN" fallback={<Navigate to="/403" replace />}>
+          <RoleGuard minRole="ROLE_EMPLOYEE" fallback={<Navigate to="/403" replace />}>
             <LeaveScreen />
           </RoleGuard>
         ),
@@ -106,6 +122,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowedRoles={['ROLE_ULTRA_SUPER_ADMIN', 'ROLE_SUPER_ADMIN']} fallback={<Navigate to="/403" replace />}>
             <SecurityScreen />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'approvals',
+        element: (
+          <RoleGuard minRole="ROLE_ADMIN" fallback={<Navigate to="/403" replace />}>
+            <ApprovalsScreen />
           </RoleGuard>
         ),
       },

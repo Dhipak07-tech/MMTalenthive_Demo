@@ -33,10 +33,13 @@ public class TenantFilter implements Filter {
             throws IOException, ServletException {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
 
-        String tenantId = httpRequest.getHeader(TENANT_HEADER);
+        String tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null || tenantId.isBlank()) {
-            // Fallback: extract from subdomain or use default
-            tenantId = extractFromSubdomain(httpRequest);
+            tenantId = httpRequest.getHeader(TENANT_HEADER);
+            if (tenantId == null || tenantId.isBlank()) {
+                // Fallback: extract from subdomain or use default
+                tenantId = extractFromSubdomain(httpRequest);
+            }
         }
 
         TenantContext.setCurrentTenant(tenantId);

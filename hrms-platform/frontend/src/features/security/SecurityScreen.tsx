@@ -8,6 +8,10 @@ import {
   useGetRolesQuery,
   useGetPermissionsQuery,
   useGenerateTokenMutation,
+  useLockUserMutation,
+  useUnlockUserMutation,
+  useResendActivationMutation,
+  useAdminResetPasswordMutation,
 } from './securityApi';
 import { useAppDispatch } from '../../app/hooks';
 import { setCredentials } from '../auth/authSlice';
@@ -26,6 +30,10 @@ export function SecurityScreen() {
   const [assignRole] = useAssignRoleMutation();
   const [revokeRole] = useRevokeRoleMutation();
   const [generateToken, { isLoading: generatingToken }] = useGenerateTokenMutation();
+  const [lockUser] = useLockUserMutation();
+  const [unlockUser] = useUnlockUserMutation();
+  const [resendActivation] = useResendActivationMutation();
+  const [adminResetPassword] = useAdminResetPasswordMutation();
 
   // Form States
   const [newUser, setNewUser] = useState({
@@ -96,6 +104,48 @@ export function SecurityScreen() {
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
       setMessage({ text: err.data?.message || 'Failed to revoke role', type: 'error' });
+    }
+  };
+
+  const handleLockUser = async (userId: string) => {
+    try {
+      await lockUser(userId).unwrap();
+      setMessage({ text: 'User locked successfully!', type: 'success' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({ text: err.data?.message || 'Failed to lock user', type: 'error' });
+    }
+  };
+
+  const handleUnlockUser = async (userId: string) => {
+    try {
+      await unlockUser(userId).unwrap();
+      setMessage({ text: 'User unlocked successfully!', type: 'success' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({ text: err.data?.message || 'Failed to unlock user', type: 'error' });
+    }
+  };
+
+  const handleResendActivation = async (userId: string) => {
+    try {
+      await resendActivation(userId).unwrap();
+      setMessage({ text: 'Activation email sent successfully!', type: 'success' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({ text: err.data?.message || 'Failed to send activation email', type: 'error' });
+    }
+  };
+
+  const handleForceResetPassword = async (userId: string) => {
+    const password = prompt('Enter new password for the user (must satisfy complexity policies):');
+    if (!password) return;
+    try {
+      await adminResetPassword({ userId, password }).unwrap();
+      setMessage({ text: 'Password reset forced successfully!', type: 'success' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({ text: err.data?.message || 'Failed to reset password', type: 'error' });
     }
   };
 
@@ -194,8 +244,10 @@ export function SecurityScreen() {
                       <thead>
                         <tr className="border-b border-surface-200 dark:border-surface-800 text-xs text-surface-400 uppercase bg-surface-50/50 dark:bg-surface-850/50">
                           <th className="p-3 font-semibold">User info</th>
+                          <th className="p-3 font-semibold">Status</th>
                           <th className="p-3 font-semibold">Assigned Roles</th>
-                          <th className="p-3 font-semibold">Actions</th>
+                          <th className="p-3 font-semibold">Manage Roles</th>
+                          <th className="p-3 font-semibold">Account Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-surface-150 dark:divide-surface-800 text-sm">
@@ -209,6 +261,37 @@ export function SecurityScreen() {
                                   Twin ID: {u.employeeId.slice(0, 8)}...
                                 </div>
                               )}
+                            </td>
+                            <td className="p-3">
+                              {(() => {
+                                const status = u.status || (u.active ? 'ACTIVE' : 'DISABLED');
+                                if (u.locked || status === 'LOCKED') {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-455 border border-rose-100 dark:border-rose-900/30">
+                                      <Lock size={12} /> Locked
+                                    </span>
+                                  );
+                                }
+                                if (status === 'PENDING_ACTIVATION') {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
+                                      Pending Activation
+                                    </span>
+                                  );
+                                }
+                                if (status === 'ACTIVE') {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
+                                      Active
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-700 dark:bg-slate-950/30 dark:text-slate-400 border border-slate-100 dark:border-slate-900/30">
+                                    Disabled
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="p-3">
                               <div className="flex flex-wrap gap-1">
@@ -251,6 +334,45 @@ export function SecurityScreen() {
                                     </option>
                                   ))}
                               </select>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                {u.locked || u.status === 'LOCKED' ? (
+                                  <button
+                                    onClick={() => handleUnlockUser(u.id)}
+                                    title="Unlock User Account"
+                                    className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400 rounded-lg transition-colors"
+                                  >
+                                    <Unlock size={14} />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleLockUser(u.id)}
+                                    title="Lock User Account"
+                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400 rounded-lg transition-colors"
+                                  >
+                                    <Lock size={14} />
+                                  </button>
+                                )}
+
+                                {u.status === 'PENDING_ACTIVATION' && (
+                                  <button
+                                    onClick={() => handleResendActivation(u.id)}
+                                    title="Resend Welcome & Activation Email"
+                                    className="px-2.5 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-650 dark:bg-indigo-950/30 dark:text-indigo-400 rounded-lg transition-colors font-semibold"
+                                  >
+                                    Resend Invite
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleForceResetPassword(u.id)}
+                                  title="Force Reset Password (Admin)"
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-250 dark:bg-slate-800 dark:text-slate-350 rounded-lg transition-colors"
+                                >
+                                  <KeyRound size={14} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}

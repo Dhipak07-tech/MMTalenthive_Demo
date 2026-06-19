@@ -23,5 +23,6 @@ public class Division extends BaseEntity {
     private BusinessUnit businessUnit;
 
     @OneToMany(mappedBy = "division", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Department> departments = new ArrayList<>();
 }

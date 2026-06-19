@@ -71,6 +71,8 @@ export interface OnboardingFormData {
   buddyId: string;
   mentorId: string;
   hrbpId: string;
+  skipManagerId: string;
+  departmentHeadId: string;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -232,7 +234,7 @@ export function validateStep6(data: OnboardingFormData): StepValidationResult {
 // ── Step 7: Relationships (OPTIONAL) ──────────────────────────────────────────
 
 export function validateStep7(data: OnboardingFormData): StepValidationResult {
-  const hasRelationships = !!(data.buddyId || data.mentorId || data.hrbpId || data.managerId);
+  const hasRelationships = !!(data.buddyId || data.mentorId || data.hrbpId || data.managerId || data.skipManagerId || data.departmentHeadId);
 
   return {
     status: hasRelationships ? 'completed' : 'not_started',
@@ -346,10 +348,12 @@ export const PROFILE_HEALTH_SECTIONS: ProfileHealthSection[] = [
     label: 'Relationships',
     weight: 15,
     fields: [
-      { key: 'managerId', label: 'Reporting Manager', potentialGain: 6 },
-      { key: 'buddyId', label: 'Buddy', potentialGain: 3 },
-      { key: 'mentorId', label: 'Mentor', potentialGain: 3 },
-      { key: 'hrbpId', label: 'HRBP', potentialGain: 3 },
+      { key: 'managerId', label: 'Reporting Manager', potentialGain: 4 },
+      { key: 'skipManagerId', label: 'Skip Manager', potentialGain: 3 },
+      { key: 'departmentHeadId', label: 'Department Head', potentialGain: 2 },
+      { key: 'buddyId', label: 'Buddy', potentialGain: 2 },
+      { key: 'mentorId', label: 'Mentor', potentialGain: 2 },
+      { key: 'hrbpId', label: 'HRBP', potentialGain: 2 },
     ],
   },
 ];

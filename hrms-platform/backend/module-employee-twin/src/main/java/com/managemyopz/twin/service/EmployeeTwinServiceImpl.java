@@ -108,6 +108,27 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
         existing.setPersonalEmail(details.getPersonalEmail());
         existing.setWorkPhone(details.getWorkPhone());
         existing.setPersonalPhone(details.getPersonalPhone());
+
+        // Org DNA mappings
+        existing.setOrganizationId(details.getOrganizationId());
+        existing.setBusinessUnitId(details.getBusinessUnitId());
+        existing.setDivisionId(details.getDivisionId());
+        existing.setDepartmentId(details.getDepartmentId());
+        existing.setSubDepartmentId(details.getSubDepartmentId());
+        existing.setDesignationId(details.getDesignationId());
+        existing.setLocationId(details.getLocationId());
+        existing.setGradeId(details.getGradeId());
+        existing.setBandId(details.getBandId());
+        existing.setCostCenterId(details.getCostCenterId());
+        existing.setEmploymentTypeId(details.getEmploymentTypeId());
+
+        // Reporting hierarchy mappings
+        existing.setManagerId(details.getManagerId());
+        existing.setSkipManagerId(details.getSkipManagerId());
+        existing.setDepartmentHeadId(details.getDepartmentHeadId());
+        existing.setHrbpId(details.getHrbpId());
+        existing.setMentorId(details.getMentorId());
+        existing.setBuddyId(details.getBuddyId());
         existing.setCurrentAddress(details.getCurrentAddress());
         existing.setPermanentAddress(details.getPermanentAddress());
         existing.setEmergencyContactName(details.getEmergencyContactName());
@@ -327,7 +348,17 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
     }
 
     @Override
-    public String previewNextEmployeeCode(UUID organizationId) {
-        return codeGeneratorService.previewNextEmployeeCode(organizationId);
+    public String previewNextEmployeeCode(UUID organizationId, UUID businessUnitId) {
+        return codeGeneratorService.previewNextCode(organizationId, businessUnitId);
+    }
+
+    @Override
+    public boolean validateCodeUniqueness(String code) {
+        return codeGeneratorService.validateCodeUniqueness(code);
+    }
+
+    @Override
+    public void reserveCode(UUID organizationId, String code) {
+        codeGeneratorService.reserveCode(organizationId, code);
     }
 }

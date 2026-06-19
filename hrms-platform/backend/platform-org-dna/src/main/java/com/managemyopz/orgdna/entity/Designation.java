@@ -12,6 +12,7 @@ public class Designation extends BaseEntity {
     @Column(name = "code", nullable = false) private String code;
     @Column(name = "level") private Integer level;
     @Column(name = "job_family") private String jobFamily;
+    @Column(name = "category") private String category;
     @Column(name = "description") private String description;
     @Column(name = "active", nullable = false) private boolean active = true;
 

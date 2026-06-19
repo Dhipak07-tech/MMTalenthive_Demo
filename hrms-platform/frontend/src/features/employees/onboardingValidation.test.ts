@@ -48,6 +48,8 @@ function createEmptyFormData(): OnboardingFormData {
     buddyId: '',
     mentorId: '',
     hrbpId: '',
+    skipManagerId: '',
+    departmentHeadId: '',
   };
 }
 
@@ -85,6 +87,8 @@ function createFullFormData(): OnboardingFormData {
     buddyId: 'uuid-buddy-1',
     mentorId: 'uuid-mentor-1',
     hrbpId: 'uuid-hrbp-1',
+    skipManagerId: 'uuid-skip-1',
+    departmentHeadId: 'uuid-depthead-1',
   };
 }
 

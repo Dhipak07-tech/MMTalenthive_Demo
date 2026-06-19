@@ -10,5 +10,7 @@
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-notification</artifactId></dependency>
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-audit</artifactId></dependency>
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-module-registry</artifactId></dependency>
+        <dependency><groupId>com.managemyopz</groupId><artifactId>module-employee-twin</artifactId></dependency>
+        <dependency><groupId>com.managemyopz</groupId><artifactId>platform-org-dna</artifactId></dependency>
     </dependencies>
 </project>

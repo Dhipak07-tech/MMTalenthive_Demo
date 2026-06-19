@@ -69,6 +69,27 @@ public class Organization extends BaseEntity {
     @Column(name = "fiscal_year_start")
     private Integer fiscalYearStart; // Month (1-12)
 
+    @Column(name = "email_domain")
+    private String emailDomain;
+
+    @Column(name = "employee_code_template")
+    private String employeeCodeTemplate;
+
+    @Column(name = "employee_code_prefix")
+    private String employeeCodePrefix;
+
+    @Column(name = "sequence_length")
+    private Integer sequenceLength = 6;
+
+    @Column(name = "starting_sequence_number")
+    private Integer startingSequenceNumber = 1;
+
+    @Column(name = "employee_code_pattern")
+    private String employeeCodePattern = "{ORG}-{SEQ:6}";
+
+    @Column(name = "weekend_policy")
+    private String weekendPolicy = "Saturday + Sunday";
+
     @Column(name = "active", nullable = false)
     private boolean active = true;
 

@@ -23,4 +23,6 @@ public class LeaveType extends BaseEntity {
     @Column(name = "max_consecutive_days") private int maxConsecutiveDays;
     @Column(name = "active") private boolean active = true;
     @Column(name = "leave_policy_id") private UUID leavePolicyId;
+    @Column(name = "category") private String category;
+    @Column(name = "gender_eligibility") private String genderEligibility;
 }

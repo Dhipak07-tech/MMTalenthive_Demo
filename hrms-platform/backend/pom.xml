@@ -33,10 +33,10 @@
         <module>platform-org-dna</module>
         <module>platform-security</module>
         <module>platform-audit</module>
+        <module>module-employee-twin</module>
         <module>platform-workflow</module>
         <module>platform-notification</module>
         <module>platform-module-registry</module>
-        <module>module-employee-twin</module>
         <module>module-leave</module>
         <module>module-recognition</module>
         <module>app-bootstrap</module>

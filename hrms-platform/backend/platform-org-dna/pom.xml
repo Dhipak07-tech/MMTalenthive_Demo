@@ -15,5 +15,9 @@
             <groupId>com.managemyopz</groupId>
             <artifactId>platform-shared</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.managemyopz</groupId>
+            <artifactId>platform-audit</artifactId>
+        </dependency>
     </dependencies>
 </project>

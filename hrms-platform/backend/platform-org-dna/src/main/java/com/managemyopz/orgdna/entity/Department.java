@@ -23,5 +23,6 @@ public class Department extends BaseEntity {
     private Division division;
 
     @OneToMany(mappedBy = "department", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SubDepartment> subDepartments = new ArrayList<>();
+    @JsonIgnore
+    private List<Team> teams = new ArrayList<>();
 }

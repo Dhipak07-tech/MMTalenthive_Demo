@@ -6,5 +6,7 @@
     <name>Platform Workflow Engine</name>
     <dependencies>
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-shared</artifactId></dependency>
+        <dependency><groupId>com.managemyopz</groupId><artifactId>platform-org-dna</artifactId></dependency>
+        <dependency><groupId>com.managemyopz</groupId><artifactId>module-employee-twin</artifactId></dependency>
     </dependencies>
 </project>

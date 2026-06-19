@@ -31,6 +31,7 @@ public class ApiResponse<T> {
 
     private boolean success;
     private int status;
+    private String errorCode;
     private String message;
     private T data;
     private Map<String, String> errors;
@@ -89,7 +90,17 @@ public class ApiResponse<T> {
                 .message(message)
                 .timestamp(Instant.now())
                 .build();
-    }
+     }
+
+     public static <T> ApiResponse<T> error(int status, String errorCode, String message) {
+         return ApiResponse.<T>builder()
+                 .success(false)
+                 .status(status)
+                 .errorCode(errorCode)
+                 .message(message)
+                 .timestamp(Instant.now())
+                 .build();
+     }
 
     public static <T> ApiResponse<T> error(int status, String message, Map<String, String> errors) {
         return ApiResponse.<T>builder()

@@ -54,8 +54,44 @@ public class User extends BaseEntity {
     @Column(name = "failed_login_attempts")
     private int failedLoginAttempts = 0;
 
-    @Column(name = "password_changed_at")
-    private Instant passwordChangedAt;
+    @Column(name = "status", nullable = false)
+    private String status = "ACTIVE"; // PENDING_ACTIVATION, ACTIVE, LOCKED, DISABLED
+
+    @Column(name = "password_change_required", nullable = false)
+    private boolean passwordChangeRequired = false;
+
+    @Column(name = "activated_at")
+    private Instant activatedAt;
+
+    @Column(name = "activation_token")
+    private String activationToken;
+
+    @Column(name = "activation_token_expiry")
+    private Instant activationTokenExpiry;
+
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_token_expiry")
+    private Instant resetTokenExpiry;
+
+    @Column(name = "last_password_change_at")
+    private Instant lastPasswordChangeAt;
+
+    @Column(name = "activation_sent_at")
+    private Instant activationSentAt;
+
+    @Column(name = "account_locked", nullable = false)
+    private boolean accountLocked = false;
+
+    @Column(name = "account_locked_at")
+    private Instant accountLockedAt;
+
+    @Column(name = "password_expiry_at")
+    private Instant passwordExpiryAt;
+
+    @Column(name = "mfa_enabled", nullable = false)
+    private boolean mfaEnabled = false;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

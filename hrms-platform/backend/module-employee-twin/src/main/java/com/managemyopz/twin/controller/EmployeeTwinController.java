@@ -111,8 +111,24 @@ public class EmployeeTwinController {
     }
 
     @GetMapping("/preview/next-code")
-    public ApiResponse<String> getNextEmployeeCode(@RequestParam(required = false) UUID organizationId) {
-        String code = service.previewNextEmployeeCode(organizationId);
+    public ApiResponse<String> getNextEmployeeCode(
+            @RequestParam(required = false) UUID organizationId,
+            @RequestParam(required = false) UUID businessUnitId) {
+        String code = service.previewNextEmployeeCode(organizationId, businessUnitId);
         return ApiResponse.success(code);
+    }
+
+    @GetMapping("/validate-code")
+    public ApiResponse<Boolean> validateCode(@RequestParam String code) {
+        boolean valid = service.validateCodeUniqueness(code);
+        return ApiResponse.success(valid);
+    }
+
+    @PostMapping("/reserve-code")
+    public ApiResponse<Void> reserveCode(
+            @RequestParam UUID organizationId,
+            @RequestParam String code) {
+        service.reserveCode(organizationId, code);
+        return ApiResponse.success(null, "Code reserved successfully");
     }
 }

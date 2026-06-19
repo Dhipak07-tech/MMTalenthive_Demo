@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector } from '../../app/hooks';
+import { UserAccountTab } from './UserAccountTab';
 import { 
-  Search, SlidersHorizontal, MapPin, Building, ShieldCheck, 
+  Search, SlidersHorizontal, MapPin, Building, ShieldCheck, Shield,
   Award, FileText, Network, Clock, Plus, Edit2, Key, CheckCircle,
   Mail, Briefcase, AlertCircle, Eye, EyeOff, LayoutGrid, List, 
   FileSpreadsheet, Trash2, Calendar, UserPlus, LogOut, CheckCircle2, 
   ChevronRight, User, Trash, Users, ArrowLeft, PlusCircle, ShieldAlert,
-  GraduationCap, BriefcaseIcon, FileWarning, HelpCircle
+  GraduationCap, BriefcaseIcon, FileWarning, HelpCircle,
+  Copy, ArrowUp, UserMinus, ArrowLeftRight, Activity
 } from 'lucide-react';
 import { 
   useGetEmployeesQuery, 
@@ -31,13 +34,42 @@ import {
 export function EmployeeDirectory() {
   const navigate = useNavigate();
   const { data: liveEmployees, isLoading, error, refetch } = useGetEmployeesQuery();
+
+  const calculateTenure = (dojStr: string) => {
+    if (!dojStr) return "0 Years, 0 Months";
+    try {
+      const doj = new Date(dojStr);
+      const now = new Date();
+      let years = now.getFullYear() - doj.getFullYear();
+      let months = now.getMonth() - doj.getMonth();
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      return `${years} Years, ${months} Months`;
+    } catch (e) {
+      return "0 Years, 0 Months";
+    }
+  };
+
+  const getProbationEndDate = (dojStr: string) => {
+    if (!dojStr) return '2026-09-20';
+    try {
+      const d = new Date(dojStr);
+      d.setMonth(d.getMonth() + 3);
+      return d.toISOString().split('T')[0];
+    } catch (e) {
+      return '2026-09-20';
+    }
+  };
   
   // State variables
+  const currentUser = useAppSelector((state) => state.auth.user);
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [maskSensitive, setMaskSensitive] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'identity' | 'dna' | 'skills' | 'certs' | 'docs' | 'relations' | 'timeline' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'identity' | 'dna' | 'skills' | 'certs' | 'docs' | 'relations' | 'timeline' | 'audit' | 'account'>('overview');
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -167,6 +199,12 @@ export function EmployeeDirectory() {
       customFields: emp.customFields || []
     };
   });
+
+  const getEmployeeNameById = (id: string) => {
+    if (!id) return 'Not Assigned';
+    const found = employees.find((e: any) => e.id === id);
+    return found ? found.displayName : 'Not Assigned';
+  };
 
   // Filtering, sorting and search
   const filteredEmployees = employees.filter(emp => {
@@ -1052,39 +1090,64 @@ export function EmployeeDirectory() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* LEFT PROFILE CARD */}
-            <div className="bg-white dark:bg-[#0B0F19] rounded-xl border border-slate-200/80 dark:border-slate-850 p-6 flex flex-col justify-between shadow-sm space-y-6">
-              <div className="flex flex-col items-center text-center space-y-4">
-                {selectedEmployee.avatarUrl ? (
-                  <img 
-                    src={selectedEmployee.avatarUrl} 
-                    alt={selectedEmployee.displayName} 
-                    className="w-24 h-24 rounded-2xl object-cover ring-4 ring-indigo-500/10 shadow-md" 
-                  />
-                ) : (
-                  <div className={`w-24 h-24 rounded-2xl bg-gradient-to-tr ${getRandomGradient(selectedEmployee.displayName)} flex items-center justify-center text-white text-3xl font-extrabold shadow-md shrink-0`}>
-                    {getInitials(selectedEmployee.displayName)}
-                  </div>
-                )}
+            <div className="relative overflow-hidden pt-0 px-6 pb-6 bg-white dark:bg-[#0B0F19] rounded-2xl border border-slate-200/80 dark:border-slate-850 flex flex-col justify-between shadow-sm space-y-6">
+              
+              {/* Blue/indigo gradient top header banner */}
+              <div className="bg-gradient-to-r from-blue-500 via-[#4F46E5] to-[#5D69F4] h-24 -mx-6 rounded-t-2xl relative" />
+              
+              <div className="flex flex-col items-center text-center -mt-14 relative z-10 space-y-3">
+                {/* Circular Avatar with Active Availability Indicator */}
+                <div className="relative">
+                  {selectedEmployee.avatarUrl ? (
+                    <img 
+                      src={selectedEmployee.avatarUrl} 
+                      alt={selectedEmployee.displayName} 
+                      className="w-22 h-22 rounded-full object-cover border-4 border-white dark:border-[#0B0F19] shadow-md" 
+                    />
+                  ) : (
+                    <div className={`w-22 h-22 rounded-full bg-gradient-to-tr ${getRandomGradient(selectedEmployee.displayName)} flex items-center justify-center text-white text-3xl font-extrabold border-4 border-white dark:border-[#0B0F19] shadow-md`}>
+                      {getInitials(selectedEmployee.displayName)}
+                    </div>
+                  )}
+                  {selectedEmployee.employmentStatus === 'ACTIVE' && (
+                    <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-[#0B0F19] rounded-full" />
+                  )}
+                </div>
+
                 <div className="space-y-1">
-                  <div className="flex items-center justify-center gap-2">
-                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">{selectedEmployee.displayName}</h2>
-                    <span className="text-[9px] font-mono font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900/40 uppercase">
-                      {selectedEmployee.employeeCode}
+                  <h2 className="text-lg font-extrabold text-slate-905 dark:text-white leading-tight">{selectedEmployee.displayName}</h2>
+                  
+                  {/* Copyable Employee Code Badge */}
+                  <div className="flex items-center justify-center gap-1.5 mt-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-indigo-900/30 font-mono text-[10px] font-bold cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all active:scale-95 inline-flex" onClick={() => { navigator.clipboard.writeText(selectedEmployee.employeeCode); triggerToast("Copied Employee Code: " + selectedEmployee.employeeCode); }}>
+                    <span>{selectedEmployee.employeeCode}</span>
+                    <Copy className="w-3 h-3 text-indigo-500" />
+                  </div>
+
+                  <div>
+                    <span className="inline-block text-[9px] px-2 py-0.5 rounded font-extrabold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 tracking-wider">
+                      {selectedEmployee.employmentStatus}
                     </span>
                   </div>
-                  <p className="text-xs font-bold text-slate-450 dark:text-slate-300">{getDesigName(selectedEmployee.designationId)}</p>
+
+                  <p className="text-xs font-bold text-slate-450 dark:text-slate-300 pt-1">{getDesigName(selectedEmployee.designationId)}</p>
                   
-                  <div className="flex flex-wrap gap-2 text-[10px] text-slate-455 justify-center pt-2 font-semibold">
-                    <span className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded"><Building className="w-3 h-3 text-indigo-550" /> {getDeptName(selectedEmployee.departmentId)}</span>
-                    <span className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 px-2 py-1 rounded"><MapPin className="w-3 h-3 text-rose-550" /> {getLocName(selectedEmployee.locationId)}</span>
+                  <div className="flex flex-col gap-2 mt-4 text-xs font-semibold text-slate-600 dark:text-slate-400 w-full text-left border-t border-slate-100 dark:border-slate-850/60 pt-4">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="truncate">{getDeptName(selectedEmployee.departmentId)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="truncate">{getLocName(selectedEmployee.locationId)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Profile Completion Circular Gauge */}
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-5 space-y-3">
+              {/* Profile Completion Gauge */}
+              <div className="border-t border-slate-100 dark:border-slate-850/60 pt-5 space-y-3">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-450">Twin Completion</span>
+                  <span className="text-slate-450">TWIN COMPLETION</span>
                   <span className="text-indigo-650 dark:text-indigo-400">{completionScore}%</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-850 rounded-full h-2 overflow-hidden">
@@ -1093,39 +1156,64 @@ export function EmployeeDirectory() {
                     style={{ width: `${completionScore}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold leading-relaxed">
+                <div className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-normal">
                   Calculated using weights: ID (20%), Contact (15%), DNA (25%), Compliance (15%), Banking (10%), Docs (10%), Skills (5%).
                 </div>
               </div>
 
-              {/* Quick DNA Actions */}
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-5 space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Aggregate Actions</p>
+              {/* Quick Actions Grid */}
+              <div className="border-t border-slate-100 dark:border-slate-850/60 pt-5 space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">QUICK ACTIONS</p>
                 <div className="grid grid-cols-2 gap-2 text-xs font-bold">
                   <button 
                     onClick={() => { setTransferDept(selectedEmployee.departmentId || ''); setTransferLoc(selectedEmployee.locationId || ''); setActiveModal('transfer'); }}
-                    className="border border-slate-205 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 p-2 rounded-lg text-center"
+                    className="flex items-center justify-center gap-2 border border-slate-205 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 p-2.5 rounded-xl text-center cursor-pointer text-slate-700 dark:text-slate-355 hover:border-indigo-500/30 transition-all"
                   >
-                    Transfer
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Transfer</span>
                   </button>
+                  
                   <button 
                     onClick={() => { setPromoteDesignation(selectedEmployee.designationId || ''); setPromoteGrade(selectedEmployee.gradeId || ''); setActiveModal('promote'); }}
-                    className="border border-slate-205 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 p-2 rounded-lg text-center"
+                    className="flex items-center justify-center gap-2 border border-slate-205 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 p-2.5 rounded-xl text-center cursor-pointer text-slate-700 dark:text-slate-355 hover:border-indigo-500/30 transition-all"
                   >
-                    Promote
+                    <ArrowUp className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Promote</span>
                   </button>
+                  
                   <button 
                     onClick={() => { setNewManagerId(selectedEmployee.managerId || ''); setActiveModal('manager'); }}
-                    className="border border-slate-205 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 p-2 rounded-lg text-center"
+                    className="flex items-center justify-center gap-2 border border-slate-205 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/60 p-2.5 rounded-xl text-center cursor-pointer text-slate-700 dark:text-slate-355 hover:border-indigo-500/30 transition-all"
                   >
-                    Manager
+                    <UserPlus className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="truncate">Assign Manager</span>
                   </button>
+                  
                   <button 
                     onClick={() => { setTerminateDate(''); setTerminateReason(''); setActiveModal('terminate'); }}
-                    className="border border-rose-200/50 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-955/20 text-rose-600 dark:text-rose-400 p-2 rounded-lg text-center"
+                    className="flex items-center justify-center gap-2 border border-rose-200/60 dark:border-rose-955/20 hover:bg-rose-50 dark:hover:bg-rose-955/20 p-2.5 rounded-xl text-center cursor-pointer text-rose-600 dark:text-rose-450 transition-all"
                   >
-                    Terminate
+                    <UserMinus className="w-3.5 h-3.5" />
+                    <span>Terminate</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Employee Tenure Card Widget */}
+              <div className="border-t border-slate-100 dark:border-slate-850/60 pt-5 space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">EMPLOYEE TENURE</p>
+                <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200/65 dark:border-slate-850 rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4.5 h-4.5 text-indigo-655 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-800 dark:text-white leading-none">
+                      {calculateTenure(selectedEmployee.dateOfJoining)}
+                    </p>
+                    <p className="text-[9px] font-medium text-slate-450 dark:text-slate-500 mt-1">
+                      Since {selectedEmployee.dateOfJoining ? new Date(selectedEmployee.dateOfJoining).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Jun 20, 2026'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1144,7 +1232,10 @@ export function EmployeeDirectory() {
                   { id: 'docs', label: 'Document Vault', icon: FileText },
                   { id: 'relations', label: 'Relationship Graph', icon: Network },
                   { id: 'timeline', label: 'Timeline Log', icon: Clock },
-                  { id: 'audit', label: 'Audit History', icon: ShieldCheck }
+                  { id: 'audit', label: 'Audit History', icon: ShieldCheck },
+                  ...(currentUser && ['ROLE_ULTRA_SUPER_ADMIN', 'ROLE_SUPER_ADMIN', 'ROLE_ADMIN', 'ROLE_MANAGER'].includes(currentUser.role)
+                    ? [{ id: 'account', label: 'User Account', icon: Shield }]
+                    : [])
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -1163,100 +1254,219 @@ export function EmployeeDirectory() {
 
               {/* Dynamic Console Content Panel */}
               <div className="bg-white dark:bg-[#0B0F19] rounded-xl border border-slate-200/80 dark:border-slate-850 p-6 min-h-[400px] shadow-sm">
-                
-                {/* 1. OVERVIEW TAB */}
-                {activeTab === 'overview' && (
+                                {activeTab === 'overview' && (
                   <div className="space-y-6 animate-fade-in text-xs font-semibold">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Health Recommendations Card */}
-                      <div className="bg-slate-50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/50 dark:border-slate-800/80 space-y-4">
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
-                          <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Twin Health Summary</h4>
-                          <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 px-2 py-0.5 rounded font-bold">
-                            Score: {completionScore}%
-                          </span>
-                        </div>
-                        {getRecommendations(selectedEmployee).length === 0 ? (
-                          <div className="flex items-center gap-2 text-emerald-600">
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                            <span>Digital Twin profile is 100% complete and fully verified.</span>
+                      
+                      {/* Twin Health Summary Card */}
+                      <div className="bg-white dark:bg-[#0B0F19] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-850 shadow-sm space-y-4">
+                        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-850 pb-3">
+                          <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-center shrink-0">
+                            <Activity className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                           </div>
-                        ) : (
-                          <div className="space-y-2.5">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase">Pending Actions Required:</p>
-                            {getRecommendations(selectedEmployee).map((rec, idx) => (
-                              <div key={idx} className="flex gap-2 items-center text-slate-700 dark:text-slate-350">
-                                <PlusCircle className="w-4 h-4 text-indigo-500 shrink-0" />
-                                <span>{rec}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Employment DNA Brief */}
-                      <div className="bg-slate-50 dark:bg-slate-900/30 p-5 rounded-xl border border-slate-200/50 dark:border-slate-800/80 space-y-3.5">
-                        <div className="border-b border-slate-100 dark:border-slate-850 pb-2">
-                          <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Employment Summary</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <p className="text-[9px] text-slate-450 uppercase font-bold">Joining Date</p>
-                            <p className="mt-0.5">{selectedEmployee.dateOfJoining || 'Jan 15, 2024'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] text-slate-450 uppercase font-bold">Work Mode</p>
-                            <p className="mt-0.5 font-bold">{selectedEmployee.workMode || 'HYBRID'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] text-slate-455 uppercase font-bold">Manager</p>
-                            <p className="mt-0.5 truncate">{selectedEmployee.managerId ? 'Reporting Manager' : 'None Assigned'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] text-slate-455 uppercase font-bold">Grade / Band</p>
-                            <p className="mt-0.5">{getGradeName(selectedEmployee.gradeId)} ({getBandName(selectedEmployee.bandId)})</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">TWIN HEALTH SUMMARY</h4>
+                              <span className="text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 px-2.5 py-0.5 rounded-full font-bold border border-indigo-100 dark:border-indigo-900/30">
+                                Score: {completionScore}%
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">Complete the following to improve profile health</p>
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Quick overview of lists */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                      <div className="border border-slate-200/60 dark:border-slate-850 p-4 rounded-xl space-y-2">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Assessed Skills</p>
-                        <p className="text-xl font-extrabold text-slate-900 dark:text-white">{selectedEmployee.skills.length}</p>
-                        <button onClick={() => setActiveTab('skills')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">View Skills Cloud &rarr;</button>
-                      </div>
-
-                      <div className="border border-slate-200/60 dark:border-slate-850 p-4 rounded-xl space-y-2">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Certifications</p>
-                        <p className="text-xl font-extrabold text-slate-900 dark:text-white">{selectedEmployee.certifications.length}</p>
-                        <button onClick={() => setActiveTab('certs')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">View Credentials &rarr;</button>
-                      </div>
-
-                      <div className="border border-slate-200/60 dark:border-slate-850 p-4 rounded-xl space-y-2">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Vault Documents</p>
-                        <p className="text-xl font-extrabold text-slate-900 dark:text-white">{selectedEmployee.documents.length}</p>
-                        <button onClick={() => setActiveTab('docs')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">Open Vault &rarr;</button>
-                      </div>
-                    </div>
-
-                    {/* Timeline Quick view */}
-                    <div className="border border-slate-200/60 dark:border-slate-850 rounded-xl p-5 space-y-3">
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2">
-                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Recent Lifecycle Events</h4>
-                        <button onClick={() => setActiveTab('timeline')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline">View Timeline Log</button>
-                      </div>
-                      {selectedEmployee.timeline.length === 0 ? (
-                        <p className="text-slate-400 text-xs py-2 text-center">No recorded lifecycle events.</p>
-                      ) : (
+                        {/* Checklist items */}
                         <div className="space-y-3">
+                          {[
+                            { id: 'pan', label: 'Add Tax ID (PAN)', pct: '+15%', checked: !!selectedEmployee.panNumber, onClick: openEditIdentityModal },
+                            { id: 'aadhaar', label: 'Add National ID (Aadhaar)', pct: '+15%', checked: !!selectedEmployee.aadhaarNumber, onClick: openEditIdentityModal },
+                            { id: 'bank', label: 'Setup Banking Details', pct: '+10%', checked: !!selectedEmployee.bankAccountNumber, onClick: openEditIdentityModal },
+                            { id: 'skills', label: 'Register Skills Competency', pct: '+5%', checked: selectedEmployee.skills && selectedEmployee.skills.length > 0, onClick: () => setActiveModal('addSkill') },
+                            { id: 'docs', label: 'Upload Compliance Documents', pct: '+10%', checked: selectedEmployee.documents && selectedEmployee.documents.length > 0, onClick: () => setActiveModal('addDoc') },
+                            { id: 'emergency', label: 'Register Emergency Contacts', pct: '+15%', checked: !!selectedEmployee.emergencyContactPhone, onClick: openEditIdentityModal },
+                          ].map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-350">
+                              <div className="flex items-center gap-2.5">
+                                <button 
+                                  onClick={item.onClick}
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                                    item.checked 
+                                      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 border-none' 
+                                      : 'bg-indigo-50 hover:bg-indigo-105 text-indigo-600 dark:bg-indigo-950/20 dark:hover:bg-indigo-900/40 border-none'
+                                  }`}
+                                >
+                                  {item.checked ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                </button>
+                                <span className={item.checked ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}>{item.label}</span>
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                item.checked 
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20' 
+                                  : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400'
+                              }`}>
+                                {item.pct}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Employment Summary Card */}
+                      <div className="bg-white dark:bg-[#0B0F19] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-850 shadow-sm space-y-4">
+                        <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-850 pb-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 flex items-center justify-center shrink-0">
+                            <Briefcase className="w-5 h-5 text-slate-500" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">EMPLOYMENT SUMMARY</h4>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">Core organizational alignment details</p>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-xs">
+                          <div>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Joining Date</p>
+                            <p className="mt-1 font-extrabold text-slate-800 dark:text-white">{selectedEmployee.dateOfJoining || '2026-06-20'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Work Mode</p>
+                            <p className="mt-1 font-extrabold text-slate-800 dark:text-white uppercase">{selectedEmployee.workMode || 'HYBRID'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Manager</p>
+                            <p className="mt-1 font-extrabold text-slate-800 dark:text-white">{selectedEmployee.managerId ? 'Reporting Manager' : 'None Assigned'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Grade / Band</p>
+                            <p className="mt-1 font-extrabold text-slate-800 dark:text-white leading-tight">
+                              {getGradeName(selectedEmployee.gradeId)} <br />
+                              <span className="text-[10px] text-slate-400 font-medium">{getBandName(selectedEmployee.bandId)}</span>
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-405 uppercase font-bold tracking-wider">Employment Type</p>
+                            <p className="mt-1 font-extrabold text-slate-800 dark:text-white">{selectedEmployee.employmentType || 'Full Time'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-405 uppercase font-bold tracking-wider">Probation Ends</p>
+                            <p className="mt-1 font-extrabold text-slate-800 dark:text-white">{getProbationEndDate(selectedEmployee.dateOfJoining)}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Stat lists and illustrations */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                      
+                      {/* Assessed Skills Card */}
+                      <div className="relative overflow-hidden bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 p-4.5 rounded-2xl shadow-sm flex flex-col justify-between min-h-[120px] group hover:border-indigo-500/20 transition-all duration-300">
+                        <div className="flex justify-between items-start">
+                          <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center shrink-0">
+                            <Award className="w-4.5 h-4.5 text-purple-650 dark:text-purple-400" />
+                          </div>
+                          
+                          {/* Target radar/concentric circle decoration */}
+                          <div className="absolute top-2 right-2 opacity-5 dark:opacity-10 group-hover:scale-110 transition-transform duration-500">
+                            <svg className="w-16 h-16 text-purple-600" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="50" cy="50" r="40" />
+                              <circle cx="50" cy="50" r="25" />
+                              <circle cx="50" cy="50" r="10" />
+                              <line x1="50" y1="10" x2="50" y2="90" />
+                              <line x1="10" y1="50" x2="90" y2="50" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="mt-3.5 space-y-1">
+                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">ASSESSED SKILLS</p>
+                          <p className="text-lg font-extrabold text-slate-850 dark:text-white leading-none">
+                            {selectedEmployee.skills ? selectedEmployee.skills.length : 0} Total Skills
+                          </p>
+                          <button onClick={() => setActiveTab('skills')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold pt-1.5 block cursor-pointer">
+                            View Skills Cloud &rarr;
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Certifications Card */}
+                      <div className="relative overflow-hidden bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 p-4.5 rounded-2xl shadow-sm flex flex-col justify-between min-h-[120px] group hover:border-indigo-500/20 transition-all duration-300">
+                        <div className="flex justify-between items-start">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-955/30 flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          
+                          {/* Certificate/medal decoration */}
+                          <div className="absolute top-2 right-2 opacity-5 dark:opacity-10 group-hover:scale-110 transition-transform duration-500">
+                            <svg className="w-16 h-16 text-emerald-600" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="25" y="20" width="50" height="60" rx="4" />
+                              <circle cx="50" cy="50" r="12" />
+                              <path d="M45 62 L40 80 L50 72 L60 80 L55 62" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="mt-3.5 space-y-1">
+                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">CERTIFICATIONS</p>
+                          <p className="text-lg font-extrabold text-slate-850 dark:text-white leading-none">
+                            {selectedEmployee.certifications ? selectedEmployee.certifications.length : 0} Active Credentials
+                          </p>
+                          <button onClick={() => setActiveTab('certs')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold pt-1.5 block cursor-pointer">
+                            View Credentials &rarr;
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Vault Documents Card */}
+                      <div className="relative overflow-hidden bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 p-4.5 rounded-2xl shadow-sm flex flex-col justify-between min-h-[120px] group hover:border-indigo-500/20 transition-all duration-300">
+                        <div className="flex justify-between items-start">
+                          <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shrink-0">
+                            <FileText className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          
+                          {/* Folder/documents decoration */}
+                          <div className="absolute top-2 right-2 opacity-5 dark:opacity-10 group-hover:scale-110 transition-transform duration-500">
+                            <svg className="w-16 h-16 text-amber-600" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20 30 L40 30 L48 40 L80 40 L80 80 L20 80 Z" />
+                              <line x1="32" y1="52" x2="68" y2="52" />
+                              <line x1="32" y1="62" x2="60" y2="62" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="mt-3.5 space-y-1">
+                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">VAULT DOCUMENTS</p>
+                          <p className="text-lg font-extrabold text-slate-855 dark:text-white leading-none">
+                            {selectedEmployee.documents ? selectedEmployee.documents.length : 0} Total Documents
+                          </p>
+                          <button onClick={() => setActiveTab('docs')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold pt-1.5 block cursor-pointer">
+                            Open Vault &rarr;
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Timeline Log widget */}
+                    <div className="bg-white dark:bg-[#0B0F19] border border-slate-200/80 dark:border-slate-850 rounded-2xl p-5 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-3">
+                        <h4 className="text-xs font-extrabold text-slate-905 dark:text-white uppercase tracking-wider">RECENT LIFECYCLE EVENTS</h4>
+                        <button onClick={() => setActiveTab('timeline')} className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold cursor-pointer">
+                          View Timeline Log &rarr;
+                        </button>
+                      </div>
+                      
+                      {!selectedEmployee.timeline || selectedEmployee.timeline.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center text-slate-450 dark:text-slate-500">
+                          <Calendar className="w-10 h-10 text-slate-300 dark:text-slate-700 mb-2" />
+                          <p className="text-xs font-bold text-slate-705 dark:text-slate-305">No recorded lifecycle events</p>
+                          <p className="text-[10px] mt-0.5 text-slate-400">Events like onboarding, transfers, promotions will appear here.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3.5">
                           {selectedEmployee.timeline.slice(0, 3).map((evt: any, idx: number) => (
-                            <div key={idx} className="flex gap-4 items-start text-xs font-semibold">
-                              <span className="text-[10px] font-mono text-slate-400 shrink-0 mt-0.5">{evt.date || evt.eventDate || 'N/A'}</span>
+                            <div key={idx} className="flex gap-4 items-start text-xs font-semibold border-l-2 border-indigo-100 dark:border-indigo-950 pl-3.5 ml-1.5 py-0.5">
+                              <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 shrink-0 mt-0.5">{evt.date || evt.eventDate || 'N/A'}</span>
                               <div>
                                 <h5 className="font-extrabold text-slate-800 dark:text-slate-200">{evt.title}</h5>
-                                <p className="text-[11px] text-slate-500 mt-0.5">{evt.description}</p>
+                                <p className="text-[10px] text-slate-450 dark:text-slate-400 mt-0.5 leading-relaxed font-medium">{evt.description}</p>
                               </div>
                             </div>
                           ))}
@@ -1627,42 +1837,85 @@ export function EmployeeDirectory() {
                     </div>
 
                     {/* Interactive Tree Graph visualization */}
-                    <div className="bg-slate-50 dark:bg-slate-900/20 rounded-xl p-5 border border-slate-200/60 dark:border-slate-855 flex flex-col items-center justify-center space-y-6">
-                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-2">Team hierarchy edge graph</p>
+                    <div className="bg-slate-50 dark:bg-slate-900/20 rounded-xl p-6 border border-slate-200/60 dark:border-slate-855 flex flex-col items-center justify-center space-y-4">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-2">Workforce Reporting Lineage</p>
                       
-                      {/* Manager node */}
-                      <div className="bg-white dark:bg-slate-900 border border-slate-202 dark:border-slate-800 p-3 rounded-lg text-center max-w-[180px] shadow-sm">
-                        <span className="text-[9px] bg-indigo-50 text-indigo-705 dark:bg-indigo-950/40 dark:text-indigo-400 px-2 py-0.5 rounded font-extrabold block mb-1">MANAGER</span>
-                        <p className="text-xs font-bold text-slate-850 dark:text-white">Reporting Manager</p>
-                      </div>
+                      <div className="flex flex-col items-center w-full max-w-lg space-y-3">
+                        {/* Department Head */}
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl text-center w-full max-w-[200px] shadow-sm">
+                          <span className="text-[8px] bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 px-2 py-0.5 rounded font-extrabold block mb-1">DEPARTMENT HEAD</span>
+                          <p className="text-xs font-bold text-slate-850 dark:text-white truncate">
+                            {getEmployeeNameById(selectedEmployee.departmentHeadId)}
+                          </p>
+                        </div>
 
-                      {/* Connector line */}
-                      <div className="w-0.5 h-8 bg-indigo-550" />
+                        {/* Line */}
+                        <div className="w-0.5 h-3 bg-indigo-500" />
 
-                      {/* Employee active node */}
-                      <div className="bg-gradient-to-r from-indigo-500 to-indigo-650 text-white p-4 rounded-xl text-center shadow-lg ring-4 ring-indigo-500/20 max-w-[200px]">
-                        <p className="text-xs font-extrabold">{selectedEmployee.displayName}</p>
-                        <p className="text-[9px] opacity-80 mt-1 uppercase font-bold">{getDesigName(selectedEmployee.designationId)}</p>
-                      </div>
+                        {/* Skip Manager */}
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl text-center w-full max-w-[200px] shadow-sm">
+                          <span className="text-[8px] bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 px-2 py-0.5 rounded font-extrabold block mb-1">SKIP MANAGER</span>
+                          <p className="text-xs font-bold text-slate-850 dark:text-white truncate">
+                            {getEmployeeNameById(selectedEmployee.skipManagerId)}
+                          </p>
+                        </div>
 
-                      {/* Connector lines to peers */}
-                      <div className="w-0.5 h-6 bg-indigo-550" />
-                      <div className="w-1/2 h-0.5 bg-indigo-550" />
-                      <div className="flex gap-12 pt-2">
-                        <div className="flex flex-col items-center">
-                          <div className="w-0.5 h-4 bg-indigo-550" />
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-center max-w-[130px] shadow-sm">
-                            <span className="text-[8px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold block mb-1">BUDDY</span>
-                            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Buddy Node</p>
+                        {/* Line */}
+                        <div className="w-0.5 h-3 bg-indigo-500" />
+
+                        {/* Reporting Manager */}
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl text-center w-full max-w-[200px] shadow-sm">
+                          <span className="text-[8px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 px-2 py-0.5 rounded font-extrabold block mb-1">REPORTING MANAGER</span>
+                          <p className="text-xs font-bold text-slate-850 dark:text-white truncate">
+                            {getEmployeeNameById(selectedEmployee.managerId)}
+                          </p>
+                        </div>
+
+                        {/* Line */}
+                        <div className="w-0.5 h-3 bg-indigo-500" />
+
+                        {/* Current Employee Node */}
+                        <div className="bg-gradient-to-r from-indigo-500 to-indigo-650 text-white p-3.5 rounded-xl text-center shadow-lg ring-4 ring-indigo-500/20 w-full max-w-[220px]">
+                          <p className="text-xs font-extrabold truncate">{selectedEmployee.displayName}</p>
+                          <p className="text-[9px] opacity-80 mt-1 uppercase font-bold truncate">{getDesigName(selectedEmployee.designationId)}</p>
+                        </div>
+
+                        {/* Line & Peer relationships */}
+                        <div className="w-0.5 h-3 bg-indigo-500" />
+                        <div className="w-full h-0.5 bg-indigo-500" />
+                        
+                        <div className="grid grid-cols-3 gap-3 w-full pt-1.5">
+                          <div className="flex flex-col items-center">
+                            <div className="w-0.5 h-2 bg-indigo-500" />
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-xl text-center w-full shadow-sm min-h-[45px] flex flex-col justify-center">
+                              <span className="text-[8px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold block mb-1">HRBP</span>
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {getEmployeeNameById(selectedEmployee.hrbpId)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col items-center">
+                            <div className="w-0.5 h-2 bg-indigo-500" />
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-xl text-center w-full shadow-sm min-h-[45px] flex flex-col justify-center">
+                              <span className="text-[8px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold block mb-1">BUDDY</span>
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {getEmployeeNameById(selectedEmployee.buddyId)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-center">
+                            <div className="w-0.5 h-2 bg-indigo-500" />
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-xl text-center w-full shadow-sm min-h-[45px] flex flex-col justify-center">
+                              <span className="text-[8px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold block mb-1">MENTOR</span>
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {getEmployeeNameById(selectedEmployee.mentorId)}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-center">
-                          <div className="w-0.5 h-4 bg-indigo-550" />
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-lg text-center max-w-[130px] shadow-sm">
-                            <span className="text-[8px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold block mb-1">HRBP</span>
-                            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">HRBP Edge</p>
-                          </div>
-                        </div>
+
                       </div>
                     </div>
 
@@ -1782,6 +2035,14 @@ export function EmployeeDirectory() {
                       </table>
                     </div>
                   </div>
+                )}
+
+                {/* 10. USER ACCOUNT TAB */}
+                {activeTab === 'account' && (
+                  <UserAccountTab 
+                    employeeId={selectedEmployee.id}
+                    readOnly={currentUser?.role === 'ROLE_MANAGER'}
+                  />
                 )}
 
               </div>
@@ -2105,6 +2366,7 @@ export function EmployeeDirectory() {
                       <option value="HRBP">HRBP</option>
                       <option value="PROJECT_MANAGER">Project Manager</option>
                       <option value="DOTTED_LINE_MANAGER">Dotted Line Manager</option>
+                      <option value="SKIP_LEVEL_MANAGER">Skip Level Manager</option>
                     </select>
                   </div>
                   <div>

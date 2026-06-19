@@ -22,4 +22,12 @@ public interface EmployeeTwinRepository extends JpaRepository<EmployeeTwin, UUID
 
     @Query("SELECT COUNT(e) FROM EmployeeTwin e WHERE e.deleted = false AND e.tenantId = :tenantId")
     long countByTenant(@Param("tenantId") String tenantId);
+
+    boolean existsByEmployeeCodeAndDeletedFalse(String employeeCode);
+
+    @Query(value = "SELECT COUNT(*) FROM employee_twins WHERE employee_code = :employeeCode", nativeQuery = true)
+    long existsByEmployeeCodeGlobal(@Param("employeeCode") String employeeCode);
+
+    @Query(value = "SELECT COUNT(*) FROM employee_twins WHERE work_email = :workEmail", nativeQuery = true)
+    long existsByWorkEmailGlobal(@Param("workEmail") String workEmail);
 }

@@ -17,7 +17,8 @@ import java.util.UUID;
 public class WorkflowInstance extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "workflow_definition_id", nullable = false)
+    @JoinColumn(name = "workflow_definition_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private WorkflowDefinition workflowDefinition;
 
     @Column(name = "entity_type", nullable = false)

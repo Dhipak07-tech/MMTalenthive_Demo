@@ -29,5 +29,5 @@ public class LeaveRequest extends BaseEntity {
     @Column(name = "workflow_instance_id") private UUID workflowInstanceId;
     @Column(name = "cancellation_reason") private String cancellationReason;
 
-    public enum LeaveStatus { PENDING, APPROVED, REJECTED, CANCELLED, AUTO_APPROVED }
+    public enum LeaveStatus { DRAFT, PENDING, PENDING_L1, PENDING_L2, PENDING_L3, APPROVED, REJECTED, CANCELLED, AUTO_APPROVED }
 }

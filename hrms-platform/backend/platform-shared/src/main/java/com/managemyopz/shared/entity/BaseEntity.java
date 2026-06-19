@@ -63,10 +63,16 @@ public abstract class BaseEntity {
     @Column(name = "deleted_by")
     private String deletedBy;
 
+    @Column(name = "effective_date")
+    private Instant effectiveDate;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
+        if (this.effectiveDate == null) {
+            this.effectiveDate = Instant.now();
+        }
         if (this.tenantId == null) {
             this.tenantId = TenantContext.getCurrentTenant();
         }
@@ -92,5 +98,72 @@ public abstract class BaseEntity {
         this.deleted = true;
         this.deletedAt = Instant.now();
         this.deletedBy = deletedBy;
+    }
+
+    public Boolean getArchived() {
+        return this.deleted;
+    }
+
+    public void setArchived(Boolean archived) {
+        this.deleted = archived != null && archived;
+    }
+
+    public Instant getArchivedAt() {
+        return this.deletedAt;
+    }
+
+    public void setArchivedAt(Instant archivedAt) {
+        this.deletedAt = archivedAt;
+    }
+
+    public String getArchivedBy() {
+        return this.deletedBy;
+    }
+
+    public void setArchivedBy(String archivedBy) {
+        this.deletedBy = archivedBy;
+    }
+
+    public void archive() {
+        this.deleted = true;
+        this.deletedAt = Instant.now();
+        String currentUser = TenantContext.getCurrentUser();
+        this.deletedBy = currentUser != null ? currentUser : "system";
+        try {
+            java.lang.reflect.Method setActive = this.getClass().getMethod("setActive", boolean.class);
+            setActive.invoke(this, false);
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    public void restore() {
+        this.deleted = false;
+        this.deletedAt = null;
+        this.deletedBy = null;
+        try {
+            java.lang.reflect.Method setActive = this.getClass().getMethod("setActive", boolean.class);
+            setActive.invoke(this, true);
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    public void deactivate() {
+        try {
+            java.lang.reflect.Method setActive = this.getClass().getMethod("setActive", boolean.class);
+            setActive.invoke(this, false);
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    public void activate() {
+        try {
+            java.lang.reflect.Method setActive = this.getClass().getMethod("setActive", boolean.class);
+            setActive.invoke(this, true);
+        } catch (Exception e) {
+            // ignore
+        }
     }
 }

@@ -43,3 +43,6 @@ __pycache__/
 
 # Local Maven Tool Distribution (Important)
 apache-maven-3.9.6/
+
+# Agent context directory
+brain/

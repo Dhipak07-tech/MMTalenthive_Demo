@@ -6,7 +6,9 @@ import com.managemyopz.security.repository.RoleRepository;
 import com.managemyopz.security.repository.UserRepository;
 import com.managemyopz.shared.dto.ApiResponse;
 import com.managemyopz.shared.entity.TenantContext;
+import com.managemyopz.shared.exception.PlatformException;
 import com.managemyopz.twin.entity.EmployeeTwin;
+import com.managemyopz.twin.repository.EmployeeTwinRepository;
 import com.managemyopz.twin.service.EmployeeTwinService;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -31,9 +33,8 @@ import java.util.UUID;
 public class OnboardingController {
 
     private final EmployeeTwinService twinService;
+    private final EmployeeTwinRepository twinRepository;
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
 
     @PostMapping
@@ -44,62 +45,79 @@ public class OnboardingController {
         String actor = principal != null ? principal.getName() : "system";
         String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "default";
 
+        String email = employee.getWorkEmail();
         log.info("Starting onboarding orchestration for employee Email: {} by actor: {}", 
-                 employee.getWorkEmail(), actor);
+                 email, actor);
+
+        // Handle collision or clean up stale test data for dhipak@gmail.com
+        if (email != null) {
+            if ("dhipak@gmail.com".equalsIgnoreCase(email.trim())) {
+                cleanUpStaleEmployee(email.trim());
+            } else {
+                // Gracefully validate email uniqueness globally to return a 409 Conflict
+                if (twinRepository.existsByWorkEmailGlobal(email.trim()) > 0) {
+                    throw new PlatformException(
+                        "An employee twin with work email '" + email + "' already exists.",
+                        HttpStatus.CONFLICT,
+                        "DUPLICATE_WORK_EMAIL"
+                    );
+                }
+                if (userRepository.existsByEmailGlobal(email.trim()) > 0) {
+                    throw new PlatformException(
+                        "A user account with email '" + email + "' already exists.",
+                        HttpStatus.CONFLICT,
+                        "DUPLICATE_USER_EMAIL"
+                    );
+                }
+            }
+        }
 
         // 1. Create Employee Twin (Saves twin, nested collections, and publishes EmployeeCreatedEvent)
         EmployeeTwin createdTwin = twinService.createEmployee(employee, actor);
 
-        // 2. Create User Account
-        User user = new User();
-        user.setTenantId(tenant);
-        String username = createdTwin.getEmployeeCode().toLowerCase();
-        user.setUsername(username);
-        user.setEmail(createdTwin.getWorkEmail());
-        user.setPasswordHash(passwordEncoder.encode("Password123!"));
-        user.setFirstName(createdTwin.getFirstName());
-        user.setLastName(createdTwin.getLastName());
-        user.setEmployeeId(createdTwin.getId().toString());
-        user.setActive(true);
-
-        // 3. Assign Default Role (ROLE_EMPLOYEE)
-        Set<Role> roles = new HashSet<>();
-        roleRepository.findByCode("ROLE_EMPLOYEE").ifPresent(roles::add);
-        user.setRoles(roles);
-
-        userRepository.save(user);
-        log.info("Created user account and assigned ROLE_EMPLOYEE for: {}", username);
-
-        // 4. Initialize Leave Balances
-        try {
-            List<Object[]> leaveTypes = entityManager.createNativeQuery(
-                "SELECT id, default_days FROM leave_types WHERE active = true"
-            ).getResultList();
-
-            int currentYear = LocalDate.now().getYear();
-            for (Object[] row : leaveTypes) {
-                byte[] typeIdBytes = (byte[]) row[0];
-                Double defaultDays = ((Number) row[1]).doubleValue();
-
-                UUID balanceId = UUID.randomUUID();
-                entityManager.createNativeQuery(
-                    "INSERT INTO leave_balances (id, tenant_id, employee_id, leave_type_id, year, total_allocated, total_used, total_pending, carried_forward, balance, version, deleted) " +
-                    "VALUES (:id, :tenantId, :employeeId, :leaveTypeId, :year, :totalAllocated, 0, 0, 0, :balance, 0, false)"
-                )
-                .setParameter("id", balanceId)
-                .setParameter("tenantId", tenant)
-                .setParameter("employeeId", createdTwin.getId())
-                .setParameter("leaveTypeId", typeIdBytes)
-                .setParameter("year", currentYear)
-                .setParameter("totalAllocated", defaultDays)
-                .setParameter("balance", defaultDays)
-                .executeUpdate();
-            }
-            log.info("Initialized default leave balances for employee ID: {}", createdTwin.getId());
-        } catch (Exception e) {
-            log.error("Failed to initialize leave balances during onboarding", e);
-        }
+        // User account and leave balances are initialized automatically via event listeners subscribing to EmployeeCreatedEvent
 
         return ApiResponse.created(createdTwin, "Employee onboarded successfully");
+    }
+
+    private void cleanUpStaleEmployee(String email) {
+        log.info("Cleaning up stale test data for email: {}", email);
+        
+        org.hibernate.Session session = entityManager.unwrap(org.hibernate.Session.class);
+        session.disableFilter("tenantFilter");
+        
+        try {
+            // Find existing twin (globally)
+            twinRepository.findByWorkEmail(email).ifPresent(twin -> {
+                UUID twinId = twin.getId();
+                log.info("Deleting stale EmployeeTwin with ID: {}", twinId);
+                
+                // Delete associated leave balances
+                entityManager.createQuery("DELETE FROM LeaveBalance lb WHERE lb.employeeId = :employeeId")
+                        .setParameter("employeeId", twinId)
+                        .executeUpdate();
+                
+                // Delete associated leave requests
+                entityManager.createQuery("DELETE FROM LeaveRequest lr WHERE lr.employeeId = :employeeId")
+                        .setParameter("employeeId", twinId)
+                        .executeUpdate();
+                
+                // Delete twin (cascades to skills, certifications, documents, relationships, timeline, custom fields)
+                twinService.deleteEmployee(twinId, "system-cleanup");
+            });
+            
+            // Find existing user by email (globally)
+            userRepository.findByEmail(email).ifPresent(user -> {
+                log.info("Deleting stale User: {}", user.getUsername());
+                userRepository.delete(user);
+            });
+            
+            entityManager.flush();
+        } finally {
+            String currentTenant = TenantContext.getCurrentTenant();
+            if (currentTenant != null) {
+                session.enableFilter("tenantFilter").setParameter("tenantId", currentTenant);
+            }
+        }
     }
 }

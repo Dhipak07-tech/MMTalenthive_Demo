@@ -27,5 +27,9 @@ public interface EmployeeTwinService {
 
     int calculateProfileCompletion(UUID id);
 
-    String previewNextEmployeeCode(UUID organizationId);
+    String previewNextEmployeeCode(UUID organizationId, UUID businessUnitId);
+
+    boolean validateCodeUniqueness(String code);
+
+    void reserveCode(UUID organizationId, String code);
 }

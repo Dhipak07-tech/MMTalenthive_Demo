@@ -61,6 +61,11 @@ export interface EmployeeTwin {
   costCenterId?: string;
   employmentTypeId?: string;
   managerId?: string;
+  skipManagerId?: string;
+  departmentHeadId?: string;
+  hrbpId?: string;
+  mentorId?: string;
+  buddyId?: string;
   dateOfJoining?: string;
   employmentStatus: 'ACTIVE' | 'ON_PROBATION' | 'ON_NOTICE' | 'ON_LEAVE' | 'SUSPENDED' | 'TERMINATED';
   workMode?: string;
@@ -176,6 +181,69 @@ export const employeesApi = platformApi.injectEndpoints({
       transformResponse: (response: any) => response.data,
       invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
     }),
+    getEmployeeAccount: builder.query<any, string>({
+      query: (employeeId) => `/v1/employees/${employeeId}/account`,
+      transformResponse: (response: any) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'Employee' as const, id }],
+    }),
+    updateEmployeeAccount: builder.mutation<any, { employeeId: string; body: any }>({
+      query: ({ employeeId, body }) => ({
+        url: `/v1/employees/${employeeId}/account`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { employeeId }) => [{ type: 'Employee', id: employeeId }],
+    }),
+    resendActivation: builder.mutation<any, string>({
+      query: (employeeId) => ({
+        url: `/v1/employees/${employeeId}/account/resend-activation`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, employeeId) => [{ type: 'Employee', id: employeeId }],
+    }),
+    resetPassword: builder.mutation<any, { employeeId: string; body: any }>({
+      query: ({ employeeId, body }) => ({
+        url: `/v1/employees/${employeeId}/account/reset-password`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { employeeId }) => [{ type: 'Employee', id: employeeId }],
+    }),
+    unlockAccount: builder.mutation<any, string>({
+      query: (employeeId) => ({
+        url: `/v1/employees/${employeeId}/account/unlock`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, employeeId) => [{ type: 'Employee', id: employeeId }],
+    }),
+    disableAccount: builder.mutation<any, string>({
+      query: (employeeId) => ({
+        url: `/v1/employees/${employeeId}/account/disable`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, employeeId) => [{ type: 'Employee', id: employeeId }],
+    }),
+    enableAccount: builder.mutation<any, string>({
+      query: (employeeId) => ({
+        url: `/v1/employees/${employeeId}/account/enable`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, employeeId) => [{ type: 'Employee', id: employeeId }],
+    }),
+    forcePasswordChange: builder.mutation<any, string>({
+      query: (employeeId) => ({
+        url: `/v1/employees/${employeeId}/account/force-password-change`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, employeeId) => [{ type: 'Employee', id: employeeId }],
+    }),
+    generateTempPassword: builder.mutation<any, string>({
+      query: (employeeId) => ({
+        url: `/v1/employees/${employeeId}/account/generate-temp-password`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, employeeId) => [{ type: 'Employee', id: employeeId }],
+    }),
   }),
 });
 
@@ -191,4 +259,13 @@ export const {
   useGetCompletionScoreQuery,
   useGetNextEmployeeCodeQuery,
   useOnboardEmployeeMutation,
+  useGetEmployeeAccountQuery,
+  useUpdateEmployeeAccountMutation,
+  useResendActivationMutation,
+  useResetPasswordMutation,
+  useUnlockAccountMutation,
+  useDisableAccountMutation,
+  useEnableAccountMutation,
+  useForcePasswordChangeMutation,
+  useGenerateTempPasswordMutation,
 } = employeesApi;

@@ -15,7 +15,11 @@ export interface Organization {
   country?: string;
   currency?: string;
   timezone?: string;
+  emailDomain?: string;
+  employeeCodeTemplate?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface BusinessUnit {
@@ -25,6 +29,8 @@ export interface BusinessUnit {
   description?: string;
   headEmployeeId?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface Division {
@@ -34,6 +40,8 @@ export interface Division {
   description?: string;
   headEmployeeId?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface Department {
@@ -43,14 +51,18 @@ export interface Department {
   description?: string;
   headEmployeeId?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
-export interface SubDepartment {
+export interface Team {
   id: string;
   name: string;
   code: string;
   description?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface Location {
@@ -64,6 +76,8 @@ export interface Location {
   timezone?: string;
   locationType?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface Grade {
@@ -72,6 +86,8 @@ export interface Grade {
   code: string;
   level?: number;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface Band {
@@ -82,6 +98,8 @@ export interface Band {
   maxSalary?: number;
   currency?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface Designation {
@@ -90,8 +108,11 @@ export interface Designation {
   code: string;
   level?: number;
   jobFamily?: string;
+  category?: string;
   description?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface EmploymentType {
@@ -102,6 +123,8 @@ export interface EmploymentType {
   probationDays?: number;
   noticePeriodDays?: number;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
 }
 
 export interface CostCenter {
@@ -111,13 +134,100 @@ export interface CostCenter {
   description?: string;
   budget?: number;
   currency?: string;
+  departmentId?: string;
   active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
+}
+
+export interface ApprovalMatrixLevel {
+  id?: string;
+  levelNumber: number;
+  approverType: string;
+  approverEmployeeId?: string;
+  required: boolean;
+  allowSkip: boolean;
+}
+
+export interface ApprovalMatrix {
+  id: string;
+  tenantId?: string;
+  organizationId?: string;
+  businessUnitId?: string;
+  divisionId?: string;
+  departmentId?: string;
+  teamId?: string;
+  designationId?: string;
+  gradeId?: string;
+  bandId?: string;
+  approvalType: string;
+  approverLevel1Id?: string;
+  approverLevel1Type?: string;
+  approverLevel2Id?: string;
+  approverLevel2Type?: string;
+  approverLevel3Id?: string;
+  approverLevel3Type?: string;
+  approverLevel4Id?: string;
+  approverLevel4Type?: string;
+  locationId?: string;
+  employmentTypeId?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  priority?: number;
+  levels?: ApprovalMatrixLevel[];
+  active: boolean;
+  deleted?: boolean;
+  effectiveDate?: string;
+}
+
+export interface DnaAnalyticsReport {
+  totalEmployees: number;
+  employeesWithValidDna: number;
+  employeesWithInvalidDna: number;
+  dnaIntegrityPercentage: number;
+  totalDnaNodes: number;
+  dnaNodesByType: Record<string, number>;
+  departmentBreakdown: Array<{
+    departmentName: string;
+    employeeCount: number;
+    percentage: number;
+  }>;
+  locationBreakdown: Array<{
+    locationName: string;
+    employeeCount: number;
+    percentage: number;
+  }>;
+  orphanBusinessUnitEmployees: string[];
+  orphanDepartmentEmployees: string[];
+  orphanTeamEmployees: string[];
+  orphanOrganizationEmployees: string[];
+  organizationNames: Record<string, string>;
+  businessUnitNames: Record<string, string>;
+  divisionNames: Record<string, string>;
+  departmentNames: Record<string, string>;
+  teamNames: Record<string, string>;
+  locationNames: Record<string, string>;
+  designationNames: Record<string, string>;
+  gradeNames: Record<string, string>;
+  bandNames: Record<string, string>;
+}
+
+export interface DnaOrphanRecord {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  fieldName: string;
+  invalidId: string;
+  suggestedMatchId?: string;
+  suggestedMatchName?: string;
 }
 
 export const orgDnaApi = platformApi.injectEndpoints({
   endpoints: (builder) => ({
-    getOrganizations: builder.query<Organization[], void>({
-      query: () => '/v1/org-dna/organizations',
+    getOrganizations: builder.query<Organization[], boolean | void>({
+      query: (includeDeleted) => `/v1/org-dna/organizations${includeDeleted ? '?includeDeleted=true' : ''}`,
       transformResponse: (response: any) => response.data || [],
     }),
     updateOrganization: builder.mutation<Organization, { id: string; body: Partial<Organization> }>({
@@ -134,9 +244,25 @@ export const orgDnaApi = platformApi.injectEndpoints({
         body,
       }),
     }),
+    deleteOrganization: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/organizations/${id}`,
+        method: 'DELETE',
+      }),
+    }),
+    restoreOrganization: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/organizations/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getBusinessUnits: builder.query<BusinessUnit[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/business-units`,
+    getBusinessUnits: builder.query<BusinessUnit[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/business-units${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createBusinessUnit: builder.mutation<BusinessUnit, { orgId: string; body: Partial<BusinessUnit> }>({
@@ -159,9 +285,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreBusinessUnit: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/business-units/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getDivisions: builder.query<Division[], string>({
-      query: (buId) => `/v1/org-dna/business-units/${buId}/divisions`,
+    getDivisions: builder.query<Division[], string | { buId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const buId = typeof arg === 'string' ? arg : arg.buId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/business-units/${buId}/divisions${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createDivision: builder.mutation<Division, { buId: string; body: Partial<Division> }>({
@@ -184,9 +320,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreDivision: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/divisions/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getDepartments: builder.query<Department[], string>({
-      query: (divId) => `/v1/org-dna/divisions/${divId}/departments`,
+    getDepartments: builder.query<Department[], string | { divId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const divId = typeof arg === 'string' ? arg : arg.divId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/divisions/${divId}/departments${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createDepartment: builder.mutation<Department, { divId: string; body: Partial<Department> }>({
@@ -209,34 +355,54 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreDepartment: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/departments/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getSubDepartments: builder.query<SubDepartment[], string>({
-      query: (deptId) => `/v1/org-dna/departments/${deptId}/sub-departments`,
+    getTeams: builder.query<Team[], string | { deptId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const deptId = typeof arg === 'string' ? arg : arg.deptId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/departments/${deptId}/teams${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
-    createSubDepartment: builder.mutation<SubDepartment, { deptId: string; body: Partial<SubDepartment> }>({
+    createTeam: builder.mutation<Team, { deptId: string; body: Partial<Team> }>({
       query: ({ deptId, body }) => ({
-        url: `/v1/org-dna/departments/${deptId}/sub-departments`,
+        url: `/v1/org-dna/departments/${deptId}/teams`,
         method: 'POST',
         body,
       }),
     }),
-    updateSubDepartment: builder.mutation<SubDepartment, { id: string; body: Partial<SubDepartment> }>({
+    updateTeam: builder.mutation<Team, { id: string; body: Partial<Team> }>({
       query: ({ id, body }) => ({
-        url: `/v1/org-dna/sub-departments/${id}`,
+        url: `/v1/org-dna/teams/${id}`,
         method: 'PUT',
         body,
       }),
     }),
-    deleteSubDepartment: builder.mutation<void, string>({
+    deleteTeam: builder.mutation<void, string>({
       query: (id) => ({
-        url: `/v1/org-dna/sub-departments/${id}`,
+        url: `/v1/org-dna/teams/${id}`,
         method: 'DELETE',
       }),
     }),
+    restoreTeam: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/teams/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getLocations: builder.query<Location[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/locations`,
+    getLocations: builder.query<Location[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/locations${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createLocation: builder.mutation<Location, { orgId: string; body: Partial<Location> }>({
@@ -259,9 +425,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreLocation: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/locations/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getGrades: builder.query<Grade[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/grades`,
+    getGrades: builder.query<Grade[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/grades${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createGrade: builder.mutation<Grade, { orgId: string; body: Partial<Grade> }>({
@@ -284,9 +460,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreGrade: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/grades/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getBands: builder.query<Band[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/bands`,
+    getBands: builder.query<Band[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/bands${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createBand: builder.mutation<Band, { orgId: string; body: Partial<Band> }>({
@@ -309,9 +495,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreBand: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/bands/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getDesignations: builder.query<Designation[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/designations`,
+    getDesignations: builder.query<Designation[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/designations${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createDesignation: builder.mutation<Designation, { orgId: string; body: Partial<Designation> }>({
@@ -334,9 +530,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreDesignation: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/designations/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getEmploymentTypes: builder.query<EmploymentType[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/employment-types`,
+    getEmploymentTypes: builder.query<EmploymentType[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/employment-types${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createEmploymentType: builder.mutation<EmploymentType, { orgId: string; body: Partial<EmploymentType> }>({
@@ -359,9 +565,19 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreEmploymentType: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/employment-types/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
 
-    getCostCenters: builder.query<CostCenter[], string>({
-      query: (orgId) => `/v1/org-dna/organizations/${orgId}/cost-centers`,
+    getCostCenters: builder.query<CostCenter[], string | { orgId: string; includeDeleted?: boolean }>({
+      query: (arg) => {
+        const orgId = typeof arg === 'string' ? arg : arg.orgId;
+        const includeDeleted = typeof arg === 'string' ? false : !!arg.includeDeleted;
+        return `/v1/org-dna/organizations/${orgId}/cost-centers${includeDeleted ? '?includeDeleted=true' : ''}`;
+      },
       transformResponse: (response: any) => response.data || [],
     }),
     createCostCenter: builder.mutation<CostCenter, { orgId: string; body: Partial<CostCenter> }>({
@@ -384,6 +600,74 @@ export const orgDnaApi = platformApi.injectEndpoints({
         method: 'DELETE',
       }),
     }),
+    restoreCostCenter: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/cost-centers/${id}/restore`,
+        method: 'POST',
+      }),
+    }),
+    getApprovalMatrices: builder.query<ApprovalMatrix[], void>({
+      query: () => '/v1/org-dna/approval-matrices',
+      transformResponse: (response: any) => response.data || [],
+    }),
+    createApprovalMatrix: builder.mutation<ApprovalMatrix, Partial<ApprovalMatrix>>({
+      query: (body) => ({
+        url: '/v1/org-dna/approval-matrices',
+        method: 'POST',
+        body,
+      }),
+    }),
+    updateApprovalMatrix: builder.mutation<ApprovalMatrix, { id: string; body: Partial<ApprovalMatrix> }>({
+      query: ({ id, body }) => ({
+        url: `/v1/org-dna/approval-matrices/${id}`,
+        method: 'PUT',
+        body,
+      }),
+    }),
+    deleteApprovalMatrix: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/org-dna/approval-matrices/${id}`,
+        method: 'DELETE',
+      }),
+    }),
+    cloneBusinessUnit: builder.mutation<BusinessUnit, { id: string; targetName: string; targetCode: string }>({
+      query: ({ id, targetName, targetCode }) => ({
+        url: `/v1/org-dna/business-units/${id}/clone?targetName=${encodeURIComponent(targetName)}&targetCode=${encodeURIComponent(targetCode)}`,
+        method: 'POST',
+      }),
+    }),
+    getAuditTrail: builder.query<{ content: any[]; totalElements: number }, { entityType: string; entityId: string; page?: number; size?: number }>({
+      query: ({ entityType, entityId, page = 0, size = 10 }) => `/v1/org-dna/audit-trail?entityType=${entityType}&entityId=${entityId}&page=${page}&size=${size}`,
+      transformResponse: (response: any) => response.data || { content: [], totalElements: 0 },
+    }),
+    getDnaAnalytics: builder.query<DnaAnalyticsReport, void>({
+      query: () => '/v1/dashboard/dna-analytics',
+      transformResponse: (response: any) => response.data,
+    }),
+    getDnaIntegrityReport: builder.query<DnaOrphanRecord[], void>({
+      query: () => '/v1/dashboard/dna-analytics/integrity-report',
+      transformResponse: (response: any) => response.data || [],
+    }),
+    manualRemap: builder.mutation<void, { employeeId: string; fieldName: string; targetId: string }>({
+      query: (body) => ({
+        url: '/v1/dashboard/dna-analytics/remap',
+        method: 'POST',
+        body,
+      }),
+    }),
+    autoRepairDna: builder.mutation<void, void>({
+      query: () => ({
+        url: '/v1/dashboard/dna-analytics/auto-repair',
+        method: 'POST',
+      }),
+    }),
+    bulkRepairDna: builder.mutation<void, { repairs: Array<{ employeeId: string; fieldName: string; targetId: string }> }>({
+      query: (body) => ({
+        url: '/v1/dashboard/dna-analytics/bulk-repair',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -391,54 +675,87 @@ export const {
   useGetOrganizationsQuery,
   useCreateOrganizationMutation,
   useUpdateOrganizationMutation,
+  useDeleteOrganizationMutation,
+  useRestoreOrganizationMutation,
 
   useGetBusinessUnitsQuery,
   useCreateBusinessUnitMutation,
   useUpdateBusinessUnitMutation,
   useDeleteBusinessUnitMutation,
+  useRestoreBusinessUnitMutation,
 
   useGetDivisionsQuery,
+  useLazyGetDivisionsQuery,
   useCreateDivisionMutation,
   useUpdateDivisionMutation,
   useDeleteDivisionMutation,
+  useRestoreDivisionMutation,
 
   useGetDepartmentsQuery,
+  useLazyGetDepartmentsQuery,
   useCreateDepartmentMutation,
   useUpdateDepartmentMutation,
   useDeleteDepartmentMutation,
+  useRestoreDepartmentMutation,
 
-  useGetSubDepartmentsQuery,
-  useCreateSubDepartmentMutation,
-  useUpdateSubDepartmentMutation,
-  useDeleteSubDepartmentMutation,
+  useGetTeamsQuery,
+  useCreateTeamMutation,
+  useUpdateTeamMutation,
+  useDeleteTeamMutation,
+  useRestoreTeamMutation,
 
   useGetLocationsQuery,
   useCreateLocationMutation,
   useUpdateLocationMutation,
   useDeleteLocationMutation,
+  useRestoreLocationMutation,
 
   useGetGradesQuery,
   useCreateGradeMutation,
   useUpdateGradeMutation,
   useDeleteGradeMutation,
+  useRestoreGradeMutation,
 
   useGetBandsQuery,
   useCreateBandMutation,
   useUpdateBandMutation,
   useDeleteBandMutation,
+  useRestoreBandMutation,
 
   useGetDesignationsQuery,
   useCreateDesignationMutation,
   useUpdateDesignationMutation,
   useDeleteDesignationMutation,
+  useRestoreDesignationMutation,
 
   useGetEmploymentTypesQuery,
   useCreateEmploymentTypeMutation,
   useUpdateEmploymentTypeMutation,
   useDeleteEmploymentTypeMutation,
+  useRestoreEmploymentTypeMutation,
 
   useGetCostCentersQuery,
   useCreateCostCenterMutation,
   useUpdateCostCenterMutation,
   useDeleteCostCenterMutation,
+  useRestoreCostCenterMutation,
+
+  useGetApprovalMatricesQuery,
+  useCreateApprovalMatrixMutation,
+  useUpdateApprovalMatrixMutation,
+  useDeleteApprovalMatrixMutation,
+  useCloneBusinessUnitMutation,
+  useGetAuditTrailQuery,
+  useGetDnaAnalyticsQuery,
+  useGetDnaIntegrityReportQuery,
+  useManualRemapMutation,
+  useAutoRepairDnaMutation,
+  useBulkRepairDnaMutation,
 } = orgDnaApi;
+
+// Keep old hooks mapped for backward compatibility in case they are referenced elsewhere
+export const useGetSubDepartmentsQuery = orgDnaApi.useGetTeamsQuery;
+export const useCreateSubDepartmentMutation = orgDnaApi.useCreateTeamMutation;
+export const useUpdateSubDepartmentMutation = orgDnaApi.useUpdateTeamMutation;
+export const useDeleteSubDepartmentMutation = orgDnaApi.useDeleteTeamMutation;
+export const useRestoreSubDepartmentMutation = orgDnaApi.useRestoreTeamMutation;

@@ -79,6 +79,8 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   const [buddyId, setBuddyId] = useState('');
   const [mentorId, setMentorId] = useState('');
   const [hrbpId, setHrbpId] = useState('');
+  const [skipManagerId, setSkipManagerId] = useState('');
+  const [departmentHeadId, setDepartmentHeadId] = useState('');
 
   // ── Cascading Queries for Org DNA ───────────
   const { data: orgs } = useGetOrganizationsQuery();
@@ -154,12 +156,12 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
     panNumber, aadhaarNumber, uanNumber, esicNumber,
     bankName, bankAccountNumber, bankIfsc,
     skillsList, certificationsList, documentsList,
-    buddyId, mentorId, hrbpId,
+    buddyId, mentorId, hrbpId, skipManagerId, departmentHeadId,
   }), [firstName, lastName, workEmail, personalEmail, workPhone, personalPhone, gender, dateOfBirth,
     dateOfJoining, selectedOrg, selectedBU, selectedDiv, selectedDept, selectedLoc, selectedGrade, selectedBand,
     managerId, workMode, designation, employmentType, panNumber, aadhaarNumber, uanNumber, esicNumber,
     bankName, bankAccountNumber, bankIfsc, skillsList, certificationsList, documentsList,
-    buddyId, mentorId, hrbpId]);
+    buddyId, mentorId, hrbpId, skipManagerId, departmentHeadId]);
 
   const validationSummary = useMemo(() => computeValidationSummary(formData), [formData]);
   const { canSubmit, completionPercentage: percentage, missingSections, optionalMissing, stepResults } = validationSummary;
@@ -233,6 +235,11 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
         gradeId: selectedGrade || undefined,
         bandId: selectedBand || undefined,
         managerId: managerId || undefined,
+        skipManagerId: skipManagerId || undefined,
+        departmentHeadId: departmentHeadId || undefined,
+        hrbpId: hrbpId || undefined,
+        mentorId: mentorId || undefined,
+        buddyId: buddyId || undefined,
         workMode,
         panNumber: panNumber || undefined,
         aadhaarNumber: aadhaarNumber || undefined,
@@ -1270,6 +1277,48 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
+
+                  {/* Skip Manager */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Skip Manager</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={skipManagerId}
+                        onChange={e => setSkipManagerId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2.5 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Skip Manager</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Department Head */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Department Head</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select 
+                        value={departmentHeadId}
+                        onChange={e => setDepartmentHeadId(e.target.value)}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-8 py-2.5 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all appearance-none cursor-pointer text-slate-800 dark:text-white"
+                      >
+                        <option value="">Select Department Head</option>
+                        {(existingEmployees || []).map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.employeeCode})
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -1408,6 +1457,30 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Bank details</span>
                       <strong className="text-slate-850 dark:text-slate-200">{bankName || 'N/A'} ({bankAccountNumber || 'N/A'})</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-455 uppercase block font-bold">Reporting Manager</span>
+                      <strong className="text-slate-850 dark:text-slate-200">
+                        {managerId ? (existingEmployees || []).find((e: any) => e.id === managerId)?.displayName || 'Assigned' : 'N/A'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-455 uppercase block font-bold">Skip Manager</span>
+                      <strong className="text-slate-850 dark:text-slate-200">
+                        {skipManagerId ? (existingEmployees || []).find((e: any) => e.id === skipManagerId)?.displayName || 'Assigned' : 'N/A'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-455 uppercase block font-bold">Department Head</span>
+                      <strong className="text-slate-850 dark:text-slate-200">
+                        {departmentHeadId ? (existingEmployees || []).find((e: any) => e.id === departmentHeadId)?.displayName || 'Assigned' : 'N/A'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-455 uppercase block font-bold">HRBP Link</span>
+                      <strong className="text-slate-850 dark:text-slate-200">
+                        {hrbpId ? (existingEmployees || []).find((e: any) => e.id === hrbpId)?.displayName || 'Assigned' : 'N/A'}
+                      </strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-455 uppercase block font-bold">Buddy Link</span>

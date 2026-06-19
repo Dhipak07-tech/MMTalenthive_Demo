@@ -1,5 +1,6 @@
 package com.managemyopz.orgdna.entity;
 
+import java.util.UUID;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.managemyopz.shared.entity.BaseEntity;
 import jakarta.persistence.*;
@@ -13,6 +14,7 @@ public class CostCenter extends BaseEntity {
     @Column(name = "description") private String description;
     @Column(name = "budget") private Double budget;
     @Column(name = "currency") private String currency;
+    @Column(name = "department_id") private UUID departmentId;
     @Column(name = "active", nullable = false) private boolean active = true;
 
     @ManyToOne(fetch = FetchType.LAZY)

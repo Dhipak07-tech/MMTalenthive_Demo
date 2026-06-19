@@ -230,9 +230,13 @@ export function Login() {
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400" htmlFor="password">
                     Password
                   </label>
-                  <a href="#forgot" className="text-xs font-semibold text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/forgot-password')}
+                    className="text-xs font-semibold text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300"
+                  >
                     Forgot?
-                  </a>
+                  </button>
                 </div>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
