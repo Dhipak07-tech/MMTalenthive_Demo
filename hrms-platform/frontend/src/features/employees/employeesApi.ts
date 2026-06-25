@@ -41,6 +41,12 @@ export interface EmployeeTwin {
   personalEmail?: string;
   workPhone?: string;
   personalPhone?: string;
+  workPhoneCountryCode?: string;
+  workPhoneNumber?: string;
+  workPhoneFull?: string;
+  personalPhoneCountryCode?: string;
+  personalPhoneNumber?: string;
+  personalPhoneFull?: string;
   gender?: string;
   dateOfBirth?: string;
   currentAddress?: string;
@@ -91,15 +97,18 @@ export interface EmployeeTwin {
 
 export const employeesApi = platformApi.injectEndpoints({
   endpoints: (builder) => ({
-    getEmployees: builder.query<EmployeeTwin[], void>({
-      query: () => '/v1/employees',
+    getEmployees: builder.query<EmployeeTwin[], boolean | void>({
+      query: (showArchived) => ({
+        url: '/v1/employees',
+        params: showArchived ? { showArchived: 'true' } : {},
+      }),
       transformResponse: (response: any) => response.data || [],
       providesTags: (result) =>
         result
           ? [
-              ...result.map(({ id }) => ({ type: 'Employee' as const, id })),
-              { type: 'Employee', id: 'LIST' },
-            ]
+            ...result.map(({ id }) => ({ type: 'Employee' as const, id })),
+            { type: 'Employee', id: 'LIST' },
+          ]
           : [{ type: 'Employee', id: 'LIST' }],
     }),
     getEmployeeById: builder.query<EmployeeTwin, string>({
@@ -160,6 +169,54 @@ export const employeesApi = platformApi.injectEndpoints({
       }),
       transformResponse: (response: any) => response.data,
       invalidatesTags: (_result, _error, { id }) => [{ type: 'Employee', id }, { type: 'Employee', id: 'LIST' }],
+    }),
+    archiveEmployee: builder.mutation<EmployeeTwin, { id: string; reason: string }>({
+      query: ({ id, reason }) => ({
+        url: `/v1/employees/${id}/archive`,
+        method: 'POST',
+        params: { reason },
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Employee', id }, { type: 'Employee', id: 'LIST' }],
+    }),
+    restoreEmployee: builder.mutation<EmployeeTwin, string>({
+      query: (id) => ({
+        url: `/v1/employees/${id}/restore`,
+        method: 'POST',
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: (_result, _error, id) => [{ type: 'Employee', id }, { type: 'Employee', id: 'LIST' }],
+    }),
+    bulkArchiveEmployees: builder.mutation<void, { ids: string[]; reason: string }>({
+      query: ({ ids, reason }) => ({
+        url: '/v1/employees/bulk-archive',
+        method: 'POST',
+        params: { ids: ids.join(','), reason },
+      }),
+      invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
+    }),
+    bulkReassignManager: builder.mutation<void, { employeeIds: string[]; managerId: string; effectiveDate: string; reason: string }>({
+      query: (body) => ({
+        url: '/v1/employees/bulk-reassign-manager',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
+    }),
+    bulkTerminateEmployees: builder.mutation<void, { employeeIds: string[]; terminationDate: string; finalWorkingDay: string; reason: string }>({
+      query: (body) => ({
+        url: '/v1/employees/bulk-terminate',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
+    }),
+    deleteEmployee: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/employees/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
     }),
     getCompletionScore: builder.query<number, string>({
       query: (id) => `/v1/employees/${id}/completion`,
@@ -256,6 +313,12 @@ export const {
   usePromoteEmployeeMutation,
   useChangeManagerMutation,
   useTerminateEmployeeMutation,
+  useArchiveEmployeeMutation,
+  useRestoreEmployeeMutation,
+  useBulkArchiveEmployeesMutation,
+  useBulkReassignManagerMutation,
+  useBulkTerminateEmployeesMutation,
+  useDeleteEmployeeMutation,
   useGetCompletionScoreQuery,
   useGetNextEmployeeCodeQuery,
   useOnboardEmployeeMutation,

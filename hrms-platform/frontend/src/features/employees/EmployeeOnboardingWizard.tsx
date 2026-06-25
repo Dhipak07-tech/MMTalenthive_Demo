@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { computeValidationSummary, type OnboardingFormData, type StepStatus } from './onboardingValidation';
+import { PhoneInput } from './PhoneInput';
+import { DatePicker } from './DatePicker';
 import { useOnboardEmployeeMutation, useGetEmployeesQuery, useGetNextEmployeeCodeQuery } from './employeesApi';
 import { 
   useGetOrganizationsQuery, 
@@ -31,6 +33,8 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
   const [personalEmail, setPersonalEmail] = useState('');
   const [workPhone, setWorkPhone] = useState('');
   const [personalPhone, setPersonalPhone] = useState('');
+  const [workPhoneError, setWorkPhoneError] = useState<string | null>(null);
+  const [personalPhoneError, setPersonalPhoneError] = useState<string | null>(null);
   const [gender, setGender] = useState('Male');
   const [dateOfBirth, setDateOfBirth] = useState('');
 
@@ -215,6 +219,46 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
         });
       }
 
+      const parsePhone = (phone?: string) => {
+        if (!phone) return { countryCode: undefined, number: undefined, full: undefined };
+        const val = phone.trim();
+        let countryCode = '+1';
+        let localNumber = val;
+        if (val.startsWith('+')) {
+          const firstSpace = val.indexOf(' ');
+          if (firstSpace > 0) {
+            countryCode = val.substring(0, firstSpace);
+            localNumber = val.substring(firstSpace + 1).trim();
+          } else {
+            if (val.startsWith('+971')) {
+              countryCode = '+971';
+              localNumber = val.substring(4);
+            } else if (val.startsWith('+91')) {
+              countryCode = '+91';
+              localNumber = val.substring(3);
+            } else if (val.startsWith('+44')) {
+              countryCode = '+44';
+              localNumber = val.substring(3);
+            } else if (val.startsWith('+61')) {
+              countryCode = '+61';
+              localNumber = val.substring(3);
+            } else if (val.startsWith('+65')) {
+              countryCode = '+65';
+              localNumber = val.substring(3);
+            } else if (val.startsWith('+1')) {
+              countryCode = '+1';
+              localNumber = val.substring(2);
+            }
+          }
+        }
+        const cleanLocal = localNumber.replace(/\D/g, '');
+        const full = countryCode + cleanLocal;
+        return { countryCode, number: cleanLocal, full };
+      };
+
+      const wp = parsePhone(workPhone);
+      const pp = parsePhone(personalPhone);
+
       await onboardEmployee({
         firstName,
         lastName,
@@ -223,6 +267,12 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
         personalEmail: personalEmail || undefined,
         workPhone: workPhone || undefined,
         personalPhone: personalPhone || undefined,
+        workPhoneCountryCode: wp.countryCode,
+        workPhoneNumber: wp.number,
+        workPhoneFull: wp.full,
+        personalPhoneCountryCode: pp.countryCode,
+        personalPhoneNumber: pp.number,
+        personalPhoneFull: pp.full,
         gender,
         dateOfBirth: dateOfBirth || undefined,
         employeeCode,
@@ -284,7 +334,7 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
               M
             </div>
             <div>
-              <span className="font-extrabold text-xs tracking-wider text-slate-850 dark:text-white uppercase block leading-none">ManageMyOpz</span>
+              <span className="font-extrabold text-xs tracking-wider text-slate-850 dark:text-white uppercase block leading-none">ManageMyTalenthive</span>
               <p className="text-[10px] text-slate-400 font-bold mt-1">HR Operating System</p>
             </div>
           </div>
@@ -561,33 +611,21 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Work Phone</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text" 
-                        placeholder="+1 (555) 019-2834"
-                        value={workPhone}
-                        onChange={e => setWorkPhone(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
-                      />
-                    </div>
-                  </div>
+                  <PhoneInput 
+                    label="Work Phone" 
+                    value={workPhone} 
+                    onChange={setWorkPhone} 
+                    error={workPhoneError || undefined} 
+                    setError={setWorkPhoneError} 
+                  />
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Personal Phone</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text" 
-                        placeholder="+1 (555) 014-9988"
-                        value={personalPhone}
-                        onChange={e => setPersonalPhone(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-white"
-                      />
-                    </div>
-                  </div>
+                  <PhoneInput 
+                    label="Personal Phone" 
+                    value={personalPhone} 
+                    onChange={setPersonalPhone} 
+                    error={personalPhoneError || undefined} 
+                    setError={setPersonalPhoneError} 
+                  />
 
                   <div className="space-y-1">
                     <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Gender</label>
@@ -606,17 +644,11 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Date of Birth</label>
-                    <div className="relative">
-                      <input 
-                        type="date" 
-                        value={dateOfBirth}
-                        onChange={e => setDateOfBirth(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all cursor-pointer text-slate-800 dark:text-white"
-                      />
-                    </div>
-                  </div>
+                  <DatePicker 
+                    label="Date of Birth" 
+                    value={dateOfBirth} 
+                    onChange={setDateOfBirth} 
+                  />
                 </div>
 
                 <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-3.5 flex items-center gap-2.5 mt-6">
@@ -660,17 +692,12 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       )}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Date of Joining *</label>
-                    <div className="relative">
-                      <input 
-                        type="date" 
-                        value={dateOfJoining}
-                        onChange={e => setDateOfJoining(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none w-full text-xs font-medium focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all cursor-pointer text-slate-800 dark:text-white"
-                      />
-                    </div>
-                  </div>
+                  <DatePicker 
+                    label="Date of Joining" 
+                    value={dateOfJoining} 
+                    onChange={setDateOfJoining} 
+                    required={true}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1107,12 +1134,10 @@ export function EmployeeOnboardingWizard({ onClose, onSuccess }: WizardProps) {
                       onChange={e => setNewCertAuthority(e.target.value)}
                       className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none text-xs text-slate-800 dark:text-white"
                     />
-                    <div className="flex gap-2">
-                      <input 
-                        type="date" 
-                        value={newCertDate}
-                        onChange={e => setNewCertDate(e.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 outline-none flex-1 text-xs text-slate-800 dark:text-white"
+                    <div className="flex gap-2 items-center flex-1">
+                      <DatePicker 
+                        value={newCertDate} 
+                        onChange={setNewCertDate} 
                       />
                       <button 
                         onClick={handleAddCert}

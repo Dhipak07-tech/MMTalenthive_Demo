@@ -8,14 +8,13 @@ try:
         database="managemyopz_hr"
     )
     cursor = conn.cursor()
-    cursor.execute("SELECT id, tenant_id, username, email, password_hash, active FROM users")
-    users = cursor.fetchall()
-    print("=== Users in managemyopz_hr ===")
-    for u in users:
-        # Convert hex id to string
-        user_id_hex = u[0].hex() if isinstance(u[0], bytes) else u[0]
-        print(f"ID: {user_id_hex}, Tenant: {u[1]}, Username: {u[2]}, Email: {u[3]}, Hash: {u[4]}, Active: {u[5]}")
+    
+    print("\n--- RECOGNITION POINTS WALLETS ---")
+    cursor.execute("SELECT id, tenant_id, employee_id, current_balance FROM recognition_points_wallets")
+    for row in cursor.fetchall():
+        print(row)
         
     conn.close()
 except Exception as e:
-    print("Error:", e)
+    print(e)
+

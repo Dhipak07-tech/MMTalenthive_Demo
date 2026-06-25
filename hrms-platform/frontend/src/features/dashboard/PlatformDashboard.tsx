@@ -14,7 +14,7 @@ export function PlatformDashboard() {
   const totalEmployees = employees?.length || 0;
 
   return (
-    <div className="space-y-6 animate-fade-in p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 animate-fade-in p-6 w-full max-w-none">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
         {/* Decorative Grid / Blur */}
@@ -28,7 +28,7 @@ export function PlatformDashboard() {
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">Welcome to SaaS Control Center</h1>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            As a Platform Owner, you have complete cross-tenant visibility. Monitor system uptime, manage client subscriptions, adjust global RBAC schemas, and review security audits.
+            As a Platform Owner, you have complete cross-tenant visibility. Monitor system uptime, manage tenant configurations, adjust global RBAC schemas, and review security audits.
           </p>
         </div>
       </div>

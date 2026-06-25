@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface RecognitionValueRepository extends JpaRepository<RecognitionValue, UUID> {
     List<RecognitionValue> findByStatus(String status);
     Optional<RecognitionValue> findByCode(String code);
+    Optional<RecognitionValue> findByCodeAndTenantId(String code, String tenantId);
 }

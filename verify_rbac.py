@@ -92,7 +92,8 @@ def test_rbac():
         "firstName": "Unauthorized",
         "lastName": "User",
         "workEmail": f"unauth-{ts}@managemyopz.com",
-        "employmentStatus": "ACTIVE"
+        "employmentStatus": "ACTIVE",
+        "organizationId": "36bf4b42-eab9-4a95-ab0a-bad239026ed0"
     }
     status, res = make_request(f"{BASE_URL}/employees", "POST", headers=emp_headers, data=twin_payload)
     print("Response Status (Expected 403):", status)

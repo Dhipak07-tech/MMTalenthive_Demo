@@ -16,20 +16,36 @@ interface RoleGuardProps {
   requiredPermission?: string; // Optional permission check
 }
 
+export function useHasPermission(permission?: string): boolean {
+  const user = useAppSelector((state) => state.auth.user);
+  const permissions = useAppSelector((state) => state.auth.permissions) || [];
+  if (!user) return false;
+  if (user.role === 'ROLE_ULTRA_SUPER_ADMIN') return true;
+  if (!permission) return true;
+  return permissions.includes(permission);
+}
+
 export function RoleGuard({
   children,
   fallback = null,
   allowedRoles,
   minRole,
+  requiredPermission,
 }: RoleGuardProps) {
   const user = useAppSelector((state) => state.auth.user);
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const hasPerm = useHasPermission(requiredPermission);
 
   if (!isAuthenticated || !user) {
     return <>{fallback}</>;
   }
 
-  // 1. Allowed roles check
+  // 1. Permission check
+  if (requiredPermission && !hasPerm) {
+    return <>{fallback}</>;
+  }
+
+  // 2. Allowed roles check
   if (allowedRoles && allowedRoles.length > 0) {
     if (allowedRoles.includes(user.role)) {
       return <>{children}</>;
@@ -37,7 +53,7 @@ export function RoleGuard({
     return <>{fallback}</>;
   }
 
-  // 2. Minimum role priority check
+  // 3. Minimum role priority check
   if (minRole) {
     const userPriority = ROLE_PRIORITIES[user.role] || 0;
     const requiredPriority = ROLE_PRIORITIES[minRole] || 0;

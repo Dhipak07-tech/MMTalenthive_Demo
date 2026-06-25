@@ -19,10 +19,10 @@ public class Department extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "division_id", nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonBackReference("div-depts")
     private Division division;
 
     @OneToMany(mappedBy = "department", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonManagedReference("dept-teams")
     private List<Team> teams = new ArrayList<>();
 }

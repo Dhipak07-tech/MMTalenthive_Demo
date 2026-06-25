@@ -518,6 +518,9 @@ public class ApprovalWorkflowServiceImpl implements ApprovalWorkflowService {
     @Override
     @Transactional(readOnly = true)
     public List<ApprovalTask> getTasksForUser(String username, String status) {
+        if (username == null || username.isBlank() || "anonymousUser".equalsIgnoreCase(username)) {
+            return Collections.emptyList();
+        }
         EmployeeTwin emp = twinRepository.findByWorkEmail(username)
                 .orElse(null);
         if (emp == null) {

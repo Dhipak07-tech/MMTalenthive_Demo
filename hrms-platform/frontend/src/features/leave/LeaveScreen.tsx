@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Send, Plus, FileText, Check, X, AlertCircle, Percent, Clock, 
-  TrendingUp, AlertTriangle, Users, Search, Filter, DollarSign, Briefcase, 
+  TrendingUp, AlertTriangle, Users, Search, Filter, IndianRupee, Briefcase, 
   History, UserCheck, MapPin, Sliders, Shield, Trash2, ChevronRight, UserPlus
 } from 'lucide-react';
+import { formatCurrency, getCurrencySymbol } from '../../utils/currencyFormatter';
 import { useAppSelector } from '../../app/hooks';
 import { 
   useGetLeaveTypesQuery,
@@ -17,10 +18,23 @@ import {
   useCreateCalendarDayMutation,
   useGetLeavePoliciesQuery,
   useCreateLeavePolicyMutation,
+  useUpdateLeavePolicyMutation,
+  useCloneLeavePolicyMutation,
+  useArchiveLeavePolicyMutation,
+  useActivateLeavePolicyMutation,
+  useDeactivateLeavePolicyMutation,
+  useDeleteLeavePolicyMutation,
   useGetPolicyRulesQuery,
   useCreatePolicyRuleMutation,
+  useUpdatePolicyRuleMutation,
+  useDeletePolicyRuleMutation,
   useGetPolicyAssignmentsQuery,
   useCreatePolicyAssignmentMutation,
+  useDeletePolicyAssignmentMutation,
+  useGetPolicyAssignmentsForIdQuery,
+  useGetPolicyVersionsQuery,
+  useGetPolicyAuditsQuery,
+  useLazyGetPolicyImpactQuery,
   useRecalculateBalancesMutation,
   useGetCompOffRequestsQuery,
   useGetCompOffWalletQuery,
@@ -42,12 +56,16 @@ import {
   useRecalculateWalletsMutation,
   type LeaveType,
   type LeaveBalance,
+  type LeavePolicy,
+  type LeavePolicyRule,
+  type LeavePolicyAssignment,
 } from './leaveApi';
 import { useGetEmployeesQuery } from '../employees/employeesApi';
 import {
   useGetApprovalTasksQuery,
   useProcessTaskActionMutation,
 } from '../workflow/workflowApi';
+import { DatePicker } from '../employees/DatePicker';
 
 export function LeaveScreen() {
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -97,7 +115,18 @@ export function LeaveScreen() {
 
   const [applyLeave, { isLoading: isApplying }] = useApplyLeaveMutation();
   const [actionLeave, { isLoading: isActioning }] = useActionLeaveMutation();
-  
+
+  const [updateLeavePolicy] = useUpdateLeavePolicyMutation();
+  const [cloneLeavePolicy] = useCloneLeavePolicyMutation();
+  const [archiveLeavePolicy] = useArchiveLeavePolicyMutation();
+  const [activateLeavePolicy] = useActivateLeavePolicyMutation();
+  const [deactivateLeavePolicy] = useDeactivateLeavePolicyMutation();
+  const [deleteLeavePolicy] = useDeleteLeavePolicyMutation();
+
+  const [updatePolicyRule] = useUpdatePolicyRuleMutation();
+  const [deletePolicyRule] = useDeletePolicyRuleMutation();
+  const [deletePolicyAssignment] = useDeletePolicyAssignmentMutation();
+
   const [createHolidayCalendar] = useCreateHolidayCalendarMutation();
   const [createCalendarDay] = useCreateCalendarDayMutation();
   const [createLeavePolicy] = useCreateLeavePolicyMutation();
@@ -109,6 +138,8 @@ export function LeaveScreen() {
   const [deleteLeaveType] = useDeleteLeaveTypeMutation();
   const [adjustBalance] = useAdjustBalanceMutation();
   const [recalculateWallets] = useRecalculateWalletsMutation();
+
+
 
   // Comp-off Query and State
   const { data: compOffRequests = [], refetch: refetchCompOffRequests } = useGetCompOffRequestsQuery(employeeId || '', { skip: !employeeId });
@@ -239,8 +270,38 @@ export function LeaveScreen() {
     policyCode: '',
     description: '',
     effectiveFrom: new Date().toISOString().split('T')[0],
-    active: true
+    effectiveTo: '',
+    active: true,
+    status: 'ACTIVE',
+    organizationScope: ''
   });
+
+  const [editPolicyForm, setEditPolicyForm] = useState({
+    id: '',
+    policyName: '',
+    policyCode: '',
+    description: '',
+    effectiveFrom: '',
+    effectiveTo: '',
+    status: 'ACTIVE',
+    organizationScope: ''
+  });
+
+  const [clonePolicyForm, setClonePolicyForm] = useState({
+    id: '',
+    newName: '',
+    newCode: ''
+  });
+
+  const [showEditPolicyModal, setShowEditPolicyModal] = useState(false);
+  const [showClonePolicyModal, setShowClonePolicyModal] = useState(false);
+  const [showEditRuleModal, setShowEditRuleModal] = useState(false);
+  const [selectedRuleForEdit, setSelectedRuleForEdit] = useState<LeavePolicyRule | null>(null);
+  const [policySubTab, setPolicySubTab] = useState<'rules' | 'assignments' | 'versions' | 'audits'>('rules');
+
+  const [activePolicyMenuId, setActivePolicyMenuId] = useState<string | null>(null);
+  const [showImpactDialog, setShowImpactDialog] = useState(false);
+  const [impactAction, setImpactAction] = useState<'create' | 'update' | null>(null);
 
   const [newRule, setNewRule] = useState({
     policyId: '',
@@ -249,7 +310,32 @@ export function LeaveScreen() {
     accrualMethod: 'MONTHLY',
     carryForwardLimit: 5,
     encashmentAllowed: true,
-    negativeBalanceAllowed: false
+    negativeBalanceAllowed: false,
+    noticePeriod: 0,
+    minServiceDays: 0,
+    attachmentRequired: false,
+    halfDayAllowed: false,
+    genderEligibility: 'ALL',
+    employmentTypeEligibility: 'ALL'
+  });
+
+  const [editRuleForm, setEditRuleForm] = useState({
+    id: '',
+    policyId: '',
+    leaveTypeId: '',
+    allocatedDays: 12,
+    accrualMethod: 'MONTHLY',
+    carryForwardLimit: 5,
+    encashmentAllowed: true,
+    negativeBalanceAllowed: false,
+    noticePeriod: 0,
+    minServiceDays: 0,
+    attachmentRequired: false,
+    halfDayAllowed: false,
+    genderEligibility: 'ALL',
+    employmentTypeEligibility: 'ALL',
+    leaveTypeName: '',
+    leaveTypeCode: ''
   });
 
   const [newAssignment, setNewAssignment] = useState({
@@ -303,6 +389,11 @@ export function LeaveScreen() {
   const [requestFilter, setRequestFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('');
   const [selectedPolicyId, setSelectedPolicyId] = useState<string>('');
+
+  const { data: policyVersions = [] } = useGetPolicyVersionsQuery(selectedPolicyId, { skip: !selectedPolicyId });
+  const { data: policyAudits = [] } = useGetPolicyAuditsQuery(selectedPolicyId, { skip: !selectedPolicyId });
+  const { data: policyAssignmentsForId = [] } = useGetPolicyAssignmentsForIdQuery(selectedPolicyId, { skip: !selectedPolicyId });
+  const [triggerGetImpact, { data: impactData }] = useLazyGetPolicyImpactQuery();
 
   // Local/Simulation States (to enrich Dashboard metrics)
   const [leavesToday] = useState([
@@ -448,7 +539,10 @@ export function LeaveScreen() {
         policyCode: '',
         description: '',
         effectiveFrom: new Date().toISOString().split('T')[0],
-        active: true
+        effectiveTo: '',
+        active: true,
+        status: 'ACTIVE',
+        organizationScope: ''
       });
     } catch (err: any) {
       alert("Failed to create policy");
@@ -555,14 +649,24 @@ export function LeaveScreen() {
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
+    setImpactAction('create');
+    setShowImpactDialog(true);
+  };
+
+  const submitCreateRule = async () => {
     try {
       await createPolicyRule({
         policyId: selectedPolicyId,
         body: newRule
       }).unwrap();
       setShowAddRuleModal(false);
+      setShowImpactDialog(false);
+      setImpactAction(null);
+      setSuccessMessage("Rule created successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      alert("Failed to create policy rule");
+      setErrorMessage(err.data?.message || "Failed to create policy rule");
+      setTimeout(() => setErrorMessage(null), 4000);
     }
   };
 
@@ -580,9 +684,211 @@ export function LeaveScreen() {
     }
   };
 
+  const handleUpdatePolicy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateLeavePolicy({
+        id: editPolicyForm.id,
+        body: {
+          policyName: editPolicyForm.policyName,
+          policyCode: editPolicyForm.policyCode,
+          description: editPolicyForm.description,
+          effectiveFrom: editPolicyForm.effectiveFrom,
+          effectiveTo: editPolicyForm.effectiveTo || undefined,
+          status: editPolicyForm.status,
+          organizationScope: editPolicyForm.organizationScope || undefined
+        }
+      }).unwrap();
+      setSuccessMessage("Policy updated successfully!");
+      setShowEditPolicyModal(false);
+      refetchPolicies();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to update policy");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleClonePolicy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const cloned = await cloneLeavePolicy({
+        id: clonePolicyForm.id,
+        newName: clonePolicyForm.newName,
+        newCode: clonePolicyForm.newCode
+      }).unwrap();
+      setSuccessMessage(`Policy cloned successfully as ${cloned.policyName}`);
+      setShowClonePolicyModal(false);
+      refetchPolicies();
+      setSelectedPolicyId(cloned.id || '');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to clone policy");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleArchivePolicy = async (id: string) => {
+    if (!window.confirm("Are you sure you want to archive this policy?")) return;
+    try {
+      await archiveLeavePolicy(id).unwrap();
+      setSuccessMessage("Policy archived successfully!");
+      refetchPolicies();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to archive policy");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleActivatePolicy = async (id: string) => {
+    try {
+      await activateLeavePolicy(id).unwrap();
+      setSuccessMessage("Policy activated successfully!");
+      refetchPolicies();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to activate policy");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleDeactivatePolicy = async (id: string) => {
+    try {
+      await deactivateLeavePolicy(id).unwrap();
+      setSuccessMessage("Policy deactivated successfully!");
+      refetchPolicies();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to deactivate policy");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleDeletePolicy = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this policy? This is a soft delete and will preserve system consistency.")) return;
+    try {
+      await deleteLeavePolicy(id).unwrap();
+      setSuccessMessage("Policy soft-deleted successfully!");
+      refetchPolicies();
+      setSelectedPolicyId(leavePolicies[0]?.id || '');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to delete policy");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleUpdatePolicyRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setImpactAction('update');
+    setShowImpactDialog(true);
+  };
+
+  const submitUpdateRule = async () => {
+    try {
+      // First update the associated leave type if the name or code has changed
+      const originalTypeDetails = leaveTypes.find(t => t.id === editRuleForm.leaveTypeId);
+      if (originalTypeDetails && (originalTypeDetails.name !== editRuleForm.leaveTypeName || originalTypeDetails.code !== editRuleForm.leaveTypeCode)) {
+        await updateLeaveType({
+          id: editRuleForm.leaveTypeId,
+          body: {
+            ...originalTypeDetails,
+            name: editRuleForm.leaveTypeName,
+            code: editRuleForm.leaveTypeCode
+          }
+        }).unwrap();
+      }
+
+      await updatePolicyRule({
+        ruleId: editRuleForm.id,
+        body: {
+          policyId: editRuleForm.policyId,
+          leaveTypeId: editRuleForm.leaveTypeId,
+          allocatedDays: editRuleForm.allocatedDays,
+          accrualMethod: editRuleForm.accrualMethod,
+          carryForwardLimit: editRuleForm.carryForwardLimit,
+          encashmentAllowed: editRuleForm.encashmentAllowed,
+          negativeBalanceAllowed: editRuleForm.negativeBalanceAllowed,
+          noticePeriod: editRuleForm.noticePeriod,
+          minServiceDays: editRuleForm.minServiceDays,
+          attachmentRequired: editRuleForm.attachmentRequired,
+          halfDayAllowed: editRuleForm.halfDayAllowed,
+          genderEligibility: editRuleForm.genderEligibility,
+          employmentTypeEligibility: editRuleForm.employmentTypeEligibility
+        }
+      }).unwrap();
+      
+      setShowEditRuleModal(false);
+      setShowImpactDialog(false);
+      setImpactAction(null);
+      setSuccessMessage("Rule and Leave Type updated successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to update policy rule");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleDeletePolicyRule = async (ruleId: string, policyId: string) => {
+    if (!window.confirm("Are you sure you want to delete this rule?")) return;
+    try {
+      await deletePolicyRule({ ruleId, policyId }).unwrap();
+      setSuccessMessage("Rule deleted successfully!");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to delete rule");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId: string, policyId: string) => {
+    if (!window.confirm("Are you sure you want to remove this assignment?")) return;
+    try {
+      await deletePolicyAssignment({ assignmentId, policyId }).unwrap();
+      setSuccessMessage("Assignment removed successfully!");
+      refetchAssignments();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.data?.message || "Failed to remove assignment");
+      setTimeout(() => setErrorMessage(null), 4000);
+    }
+  };
+
   // Queries for active tabs
   const { data: activeCalendarDays = [] } = useGetCalendarDaysQuery(selectedCalendarId, { skip: !selectedCalendarId });
   const { data: activePolicyRules = [] } = useGetPolicyRulesQuery(selectedPolicyId, { skip: !selectedPolicyId });
+
+  // Live Impact analysis trigger when rule form inputs change
+  useEffect(() => {
+    if (showEditRuleModal && editRuleForm.id && editRuleForm.leaveTypeId && selectedPolicyId) {
+      triggerGetImpact({
+        id: selectedPolicyId,
+        newAllocatedDays: editRuleForm.allocatedDays,
+        leaveTypeId: editRuleForm.leaveTypeId
+      });
+    }
+  }, [editRuleForm.allocatedDays, editRuleForm.leaveTypeId, showEditRuleModal, selectedPolicyId]);
+
+  useEffect(() => {
+    if (showAddRuleModal && selectedPolicyId && newRule.leaveTypeId) {
+      triggerGetImpact({
+        id: selectedPolicyId,
+        newAllocatedDays: newRule.allocatedDays,
+        leaveTypeId: newRule.leaveTypeId
+      });
+    }
+  }, [newRule.allocatedDays, newRule.leaveTypeId, showAddRuleModal, selectedPolicyId]);
+
+  // Global click listener to close active policy 3-dot dropdown menu
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setActivePolicyMenuId(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
 
   // Filter requests
   const filteredRequests = requests.filter(req => {
@@ -643,7 +949,7 @@ export function LeaveScreen() {
     ? [
         { id: 'dashboard', label: 'Executive Dashboard', icon: Sliders },
         { id: 'applyWorkspace', label: 'Apply Leave Workspace', icon: Send },
-        { id: 'wallet', label: 'My Wallet & Accruals', icon: DollarSign },
+        { id: 'wallet', label: 'My Wallet & Accruals', icon: IndianRupee },
         { id: 'requests', label: 'Leave History', icon: History },
         { id: 'teamCalendar', label: 'Team Capacity', icon: Calendar },
         { id: 'approvalCenter', label: 'Approval Inbox', icon: UserCheck },
@@ -658,7 +964,7 @@ export function LeaveScreen() {
     : [
         { id: 'dashboard', label: 'Leave Dashboard', icon: Sliders },
         { id: 'applyWorkspace', label: 'Apply Leave Workspace', icon: Send },
-        { id: 'wallet', label: 'Leave Balance Wallet', icon: DollarSign },
+        { id: 'wallet', label: 'Leave Balance Wallet', icon: IndianRupee },
         { id: 'requests', label: 'My Requests', icon: History },
         { id: 'teamCalendar', label: 'Team Calendar', icon: Calendar },
         { id: 'holidayCalendars', label: 'Holiday Calendar', icon: MapPin },
@@ -667,7 +973,7 @@ export function LeaveScreen() {
       ];
 
   return (
-    <div className="space-y-6 animate-fade-in p-6 max-w-7xl mx-auto text-surface-900 dark:text-white">
+    <div className="space-y-6 animate-fade-in p-6 w-full max-w-none text-surface-900 dark:text-white">
       {/* Executive Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-gradient-to-r from-surface-50 to-surface-100 dark:from-surface-900 dark:to-surface-850 p-6 rounded-2xl border border-surface-200 dark:border-surface-800">
         <div>
@@ -802,28 +1108,22 @@ export function LeaveScreen() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="uppercase tracking-wider">Start Date</label>
-                        <input 
-                          type="date" 
-                          required
+                        <DatePicker
+                          label="Start Date"
                           value={newRequest.startDate}
-                          onChange={e => setNewRequest({ ...newRequest, startDate: e.target.value })}
-                          className="w-full mt-1.5 px-3.5 py-2.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-800 dark:text-surface-200 font-bold"
+                          onChange={v => setNewRequest({ ...newRequest, startDate: v })}
+                          required
                         />
                       </div>
                       <div>
-                        <label className="uppercase tracking-wider">End Date</label>
-                        <input 
-                          type="date" 
-                          required
+                        <DatePicker
+                          label="End Date"
                           value={newRequest.endDate}
-                          onChange={e => setNewRequest({ ...newRequest, endDate: e.target.value })}
-                          className="w-full mt-1.5 px-3.5 py-2.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-800 dark:text-surface-200 font-bold"
+                          onChange={v => setNewRequest({ ...newRequest, endDate: v })}
+                          required
                         />
                       </div>
-                    </div>
 
                     {newRequest.halfDay && (
                       <div>
@@ -1007,7 +1307,7 @@ export function LeaveScreen() {
                 {/* Leave Balance Summary Card */}
                 <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-2xl p-5 shadow-sm space-y-4">
                   <h3 className="font-bold text-xs uppercase tracking-wider text-surface-400 flex items-center gap-1.5">
-                    <DollarSign className="w-4 h-4" /> Leave Balance Wallet Summary
+                    <IndianRupee className="w-4 h-4" /> Leave Balance Wallet Summary
                   </h3>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -1170,8 +1470,8 @@ export function LeaveScreen() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 {[
                   { label: 'Leave Utilization Rate', value: '68.2%', change: '+3.4% YoY', icon: Percent, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20' },
-                  { label: 'Leave Liability Cost', value: '$124,500', change: 'Accrued liability', icon: DollarSign, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
-                  { label: 'Carry Forward Exposure', value: '$42,300', change: 'Expires Dec 31', icon: Clock, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20' },
+                  { label: 'Leave Liability Cost', value: formatCurrency(124500), change: 'Accrued liability', icon: IndianRupee, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
+                  { label: 'Carry Forward Exposure', value: formatCurrency(42300), change: 'Expires Dec 31', icon: Clock, color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20' },
                   { label: 'Avg Approval SLA / Compliance', value: '14.5 hrs / 94%', change: 'SLA target met', icon: TrendingUp, color: 'text-teal-600 bg-teal-50 dark:bg-teal-950/20' }
                 ].map((kpi, idx) => (
                   <div key={idx} className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 flex items-center justify-between hover:shadow-md transition-all">
@@ -1240,7 +1540,7 @@ export function LeaveScreen() {
                             style={{ height: `${data.val}%` }}
                           >
                             <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-surface-900 text-white text-[9px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                              ${data.val}k
+                              {getCurrencySymbol()}{data.val}k
                             </span>
                           </div>
                         </div>
@@ -1338,14 +1638,14 @@ export function LeaveScreen() {
           ) : (
             <div className="space-y-6">
               {/* Welcome Banner Card */}
-              <div className="bg-gradient-to-r from-primary-850 to-indigo-950 text-white p-6 rounded-2xl border border-primary-700/30 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+              <div className="bg-gradient-to-r from-blue-600 via-indigo-650 to-purple-700 text-white p-6 rounded-2xl border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl shadow-indigo-500/10">
                 <div>
-                  <h2 className="text-2xl font-extrabold">Welcome, {currentUser?.name || 'Employee'}!</h2>
-                  <p className="text-sm text-primary-200 mt-1">Plan your absences, view holiday calendars, and manage leave requests seamlessly from your self-service portal.</p>
+                  <h2 className="text-2xl font-extrabold tracking-tight">Welcome, {currentUser?.name || 'Employee'}!</h2>
+                  <p className="text-sm text-indigo-100/90 mt-1 font-medium">Plan your absences, view holiday calendars, and manage leave requests seamlessly from your self-service portal.</p>
                 </div>
                 <button
                   onClick={() => setShowRequestModal(true)}
-                  className="bg-white text-primary-900 hover:bg-primary-50 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5"
+                  className="bg-white text-indigo-950 hover:bg-indigo-50 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" /> Apply Leave
                 </button>
@@ -1361,7 +1661,7 @@ export function LeaveScreen() {
                     <span className="text-[11px] text-surface-550 dark:text-surface-400 font-medium block mt-1">Across all leave categories</span>
                   </div>
                   <div className="p-3 rounded-xl text-primary-600 bg-primary-50 dark:bg-primary-950/20">
-                    <DollarSign className="w-5 h-5" />
+                    <IndianRupee className="w-5 h-5" />
                   </div>
                 </div>
 
@@ -2069,157 +2369,671 @@ export function LeaveScreen() {
           </div>
         )}
 
-        {/* TAB 7: POLICY SETUP */}
-        {activeTab === 'policyRules' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Policies Sidebar */}
-            <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-base">Leave Policies</h3>
-                {isAdminOrManager && (
-                  <button 
-                    onClick={() => setShowAddPolicyModal(true)}
-                    className="p-1 text-primary-600 hover:bg-primary-50 rounded"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+        {/* TAB 7: POLICY RULES */}
+        {activeTab === 'policyRules' && (() => {
+          const selectedPolicy = leavePolicies.find(p => p.id === selectedPolicyId);
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Policies Sidebar */}
+              <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-base">Leave Policies</h3>
+                  {isAdminOrManager && (
+                    <button 
+                      onClick={() => {
+                        setNewPolicy({
+                          policyName: '',
+                          policyCode: '',
+                          description: '',
+                          effectiveFrom: new Date().toISOString().split('T')[0],
+                          effectiveTo: '',
+                          active: true,
+                          status: 'ACTIVE',
+                          organizationScope: 'GLOBAL'
+                        });
+                        setShowAddPolicyModal(true);
+                      }}
+                      className="p-1 text-primary-600 hover:bg-primary-50 rounded"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {leavePolicies.map(policy => (
+                    <div
+                      key={policy.id}
+                      className={`relative w-full rounded-xl border flex items-center justify-between transition-all ${
+                        selectedPolicyId === policy.id
+                          ? 'bg-primary-50/50 border-primary-300 text-primary-900 dark:bg-primary-950/20 dark:border-primary-800'
+                          : 'bg-transparent border-surface-200 dark:border-surface-800 hover:bg-surface-50'
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          setSelectedPolicyId(policy.id || '');
+                          setPolicySubTab('rules');
+                        }}
+                        className="flex-1 p-4 text-left"
+                      >
+                        <h4 className="font-bold text-sm">{policy.policyName}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-surface-500 font-mono text-[10px]">{policy.policyCode}</p>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                            policy.status === 'ACTIVE' ? 'bg-green-50 text-green-700 dark:bg-green-950/25 dark:text-green-400' :
+                            policy.status === 'ARCHIVED' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/25 dark:text-rose-450' :
+                            'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400'
+                          }`}>
+                            {policy.status || (policy.active ? 'ACTIVE' : 'INACTIVE')}
+                          </span>
+                        </div>
+                      </button>
+
+                      {isAdminOrManager && (
+                        <div className="pr-3 relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActivePolicyMenuId(activePolicyMenuId === policy.id ? null : policy.id || null);
+                            }}
+                            className="p-1 hover:bg-surface-200 dark:hover:bg-surface-800 rounded-full transition-all text-surface-500 hover:text-surface-800"
+                            title="Policy Actions"
+                          >
+                            <span className="font-bold text-base leading-none">⋮</span>
+                          </button>
+                          
+                          {activePolicyMenuId === policy.id && (
+                            <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-surface-850 rounded-lg shadow-lg border border-surface-200 dark:border-surface-800 z-50 py-1 text-xs text-surface-700 dark:text-surface-300 font-semibold">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditPolicyForm({
+                                    id: policy.id || '',
+                                    policyName: policy.policyName,
+                                    policyCode: policy.policyCode,
+                                    description: policy.description || '',
+                                    effectiveFrom: policy.effectiveFrom,
+                                    effectiveTo: policy.effectiveTo || '',
+                                    status: policy.status || 'ACTIVE',
+                                    organizationScope: policy.organizationScope || 'GLOBAL'
+                                  });
+                                  setShowEditPolicyModal(true);
+                                  setActivePolicyMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5"
+                              >
+                                ✏️ Edit Policy
+                              </button>
+                              
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setClonePolicyForm({
+                                    id: policy.id || '',
+                                    newName: `${policy.policyName} (Copy)`,
+                                    newCode: `${policy.policyCode}CPY`
+                                  });
+                                  setShowClonePolicyModal(true);
+                                  setActivePolicyMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5"
+                              >
+                                📋 Clone Policy
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPolicyId(policy.id || '');
+                                  setPolicySubTab('assignments');
+                                  setActivePolicyMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5"
+                              >
+                                👥 View Assignments
+                              </button>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPolicyId(policy.id || '');
+                                  setPolicySubTab('versions');
+                                  setActivePolicyMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5"
+                              >
+                                📜 Version History
+                              </button>
+                              
+                              {policy.status !== 'ACTIVE' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleActivatePolicy(policy.id || '');
+                                    setActivePolicyMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400"
+                                >
+                                  ✅ Activate Policy
+                                </button>
+                              )}
+
+                              {policy.status === 'ACTIVE' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeactivatePolicy(policy.id || '');
+                                    setActivePolicyMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5 text-amber-600 dark:text-amber-450"
+                                >
+                                  ⚠️ Deactivate Policy
+                                </button>
+                              )}
+
+                              {policy.status !== 'ARCHIVED' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleArchivePolicy(policy.id || '');
+                                    setActivePolicyMenuId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5 text-rose-600 dark:text-rose-450"
+                                >
+                                  📦 Archive Policy
+                                </button>
+                              )}
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePolicy(policy.id || '');
+                                  setActivePolicyMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1.5 text-red-600 dark:text-red-400 border-t border-surface-100 dark:border-surface-800"
+                              >
+                                🗑️ Delete Policy
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Policy detail pane */}
+              <div className="lg:col-span-2 space-y-6">
+                {selectedPolicy ? (
+                  <>
+                    {/* Policy Metadata & Actions Card */}
+                    <div className="bg-white dark:bg-surface-850 p-6 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                        <div>
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <h2 className="text-lg font-bold text-surface-900 dark:text-white">{selectedPolicy.policyName}</h2>
+                            <span className="text-xs font-mono bg-surface-100 dark:bg-surface-800 text-surface-600 px-2 py-0.5 rounded">
+                              {selectedPolicy.policyCode}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                              selectedPolicy.status === 'ACTIVE' ? 'bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400' :
+                              selectedPolicy.status === 'ARCHIVED' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/30 dark:text-rose-450' :
+                              'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-450'
+                            }`}>
+                              {selectedPolicy.status || (selectedPolicy.active ? 'ACTIVE' : 'INACTIVE')}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary-50 text-primary-700 dark:bg-primary-950/20 dark:text-primary-400 uppercase tracking-wider">
+                              Scope: {selectedPolicy.organizationScope || 'GLOBAL'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-surface-500 font-medium mt-2">{selectedPolicy.description}</p>
+                          <p className="text-[10px] text-surface-400 mt-1 font-mono">
+                            Effective: {selectedPolicy.effectiveFrom} {selectedPolicy.effectiveTo ? `to ${selectedPolicy.effectiveTo}` : '(No Expiry)'}
+                          </p>
+                        </div>
+
+                        {isAdminOrManager && (
+                          <div className="flex flex-wrap items-center gap-1.5 self-stretch md:self-auto justify-end">
+                            <button
+                              onClick={() => {
+                                setEditPolicyForm({
+                                  id: selectedPolicy.id || '',
+                                  policyName: selectedPolicy.policyName,
+                                  policyCode: selectedPolicy.policyCode,
+                                  description: selectedPolicy.description || '',
+                                  effectiveFrom: selectedPolicy.effectiveFrom,
+                                  effectiveTo: selectedPolicy.effectiveTo || '',
+                                  status: selectedPolicy.status || 'ACTIVE',
+                                  organizationScope: selectedPolicy.organizationScope || 'GLOBAL'
+                                });
+                                setShowEditPolicyModal(true);
+                              }}
+                              className="px-2.5 py-1.5 text-xs font-bold border border-surface-200 dark:border-surface-700 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1 text-surface-700 dark:text-surface-200"
+                              title="Edit Policy Details"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setClonePolicyForm({
+                                  id: selectedPolicy.id || '',
+                                  newName: `${selectedPolicy.policyName} (Cloned)`,
+                                  newCode: `${selectedPolicy.policyCode}_CLONED`
+                                });
+                                setShowClonePolicyModal(true);
+                              }}
+                              className="px-2.5 py-1.5 text-xs font-bold border border-surface-200 dark:border-surface-700 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 flex items-center gap-1 text-surface-700 dark:text-surface-200"
+                              title="Clone Leave Policy"
+                            >
+                              Clone
+                            </button>
+                            {selectedPolicy.status !== 'ACTIVE' ? (
+                              <button
+                                onClick={() => handleActivatePolicy(selectedPolicy.id || '')}
+                                className="px-2.5 py-1.5 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                              >
+                                Activate
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDeactivatePolicy(selectedPolicy.id || '')}
+                                className="px-2.5 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
+                              >
+                                Deactivate
+                              </button>
+                            )}
+                            {selectedPolicy.status !== 'ARCHIVED' && (
+                              <button
+                                onClick={() => handleArchivePolicy(selectedPolicy.id || '')}
+                                className="px-2.5 py-1.5 text-xs font-bold bg-surface-100 hover:bg-surface-250 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-white rounded-lg"
+                              >
+                                Archive
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeletePolicy(selectedPolicy.id || '')}
+                              className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg"
+                              title="Soft Delete Policy"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sub-tab navigation */}
+                      <div className="flex border-b border-surface-150 dark:border-surface-800 gap-4 mt-2">
+                        {(['rules', 'assignments', 'versions', 'audits'] as const).map(tab => (
+                          <button
+                            key={tab}
+                            onClick={() => setPolicySubTab(tab)}
+                            className={`py-2 px-1 text-xs font-bold border-b-2 capitalize transition-all ${
+                              policySubTab === tab
+                                ? 'border-primary-500 text-primary-600'
+                                : 'border-transparent text-surface-500 hover:text-surface-700'
+                            }`}
+                          >
+                            {tab === 'rules' ? 'Accrual Rules' :
+                             tab === 'assignments' ? 'DNA Scope Assignments' :
+                             tab === 'versions' ? 'Version Snapshots' :
+                             'Audit Logs'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sub-tab Content: Rules */}
+                    {policySubTab === 'rules' && (
+                      <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
+                        <div className="flex justify-between items-center border-b border-surface-150 dark:border-surface-800 pb-3">
+                          <div>
+                            <h3 className="font-bold text-sm">Policy Rules</h3>
+                            <p className="text-[11px] text-surface-500 mt-0.5">Parameters governing yearly credit allocations, carry limits, notice periods, and eligibilities.</p>
+                          </div>
+                          {isAdminOrManager && (
+                            <button
+                              onClick={() => {
+                                setNewRule({
+                                  policyId: selectedPolicy.id || '',
+                                  leaveTypeId: leaveTypes[0]?.id || '',
+                                  allocatedDays: 12,
+                                  accrualMethod: 'MONTHLY',
+                                  carryForwardLimit: 5,
+                                  encashmentAllowed: true,
+                                  negativeBalanceAllowed: false,
+                                  noticePeriod: 0,
+                                  minServiceDays: 0,
+                                  attachmentRequired: false,
+                                  halfDayAllowed: false,
+                                  genderEligibility: 'ALL',
+                                  employmentTypeEligibility: 'ALL'
+                                });
+                                setShowAddRuleModal(true);
+                              }}
+                              className="flex items-center gap-1 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add Rule
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {activePolicyRules.map((rule) => {
+                            const typeDetails = leaveTypes.find(t => t.id === rule.leaveTypeId);
+                            return (
+                              <div key={rule.id} className="p-4 border border-surface-200 dark:border-surface-750 rounded-xl bg-surface-50/30 dark:bg-surface-900/5 space-y-3 relative group">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-sm text-surface-800 dark:text-white">
+                                      {typeDetails?.name || 'Leave Type Rule'}
+                                    </h4>
+                                    {isAdminOrManager && (
+                                      <div className="flex items-center gap-1.5 ml-2">
+                                        <button
+                                          onClick={() => {
+                                            setEditRuleForm({
+                                              id: rule.id || '',
+                                              policyId: rule.policyId,
+                                              leaveTypeId: rule.leaveTypeId,
+                                              allocatedDays: rule.allocatedDays,
+                                              accrualMethod: rule.accrualMethod,
+                                              carryForwardLimit: rule.carryForwardLimit,
+                                              encashmentAllowed: rule.encashmentAllowed,
+                                              negativeBalanceAllowed: rule.negativeBalanceAllowed,
+                                              noticePeriod: rule.noticePeriod || 0,
+                                              minServiceDays: rule.minServiceDays || 0,
+                                              attachmentRequired: !!rule.attachmentRequired,
+                                              halfDayAllowed: !!rule.halfDayAllowed,
+                                              genderEligibility: rule.genderEligibility || 'ALL',
+                                              employmentTypeEligibility: rule.employmentTypeEligibility || 'ALL',
+                                              leaveTypeName: typeDetails?.name || '',
+                                              leaveTypeCode: typeDetails?.code || ''
+                                            });
+                                            setSelectedRuleForEdit(rule);
+                                            setShowEditRuleModal(true);
+                                          }}
+                                          className="text-primary-600 hover:text-primary-800 dark:text-primary-400 p-0.5 transition-colors"
+                                          title="Edit Rule & Leave Type"
+                                        >
+                                          <span className="text-sm">✏️</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeletePolicyRule(rule.id || '', selectedPolicyId)}
+                                          className="text-rose-500 hover:text-rose-700 p-0.5 transition-colors"
+                                          title="Delete Rule"
+                                        >
+                                          <span className="text-sm">🗑️</span>
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setNewRule({
+                                              policyId: selectedPolicyId,
+                                              leaveTypeId: rule.leaveTypeId,
+                                              allocatedDays: rule.allocatedDays,
+                                              accrualMethod: rule.accrualMethod,
+                                              carryForwardLimit: rule.carryForwardLimit,
+                                              encashmentAllowed: rule.encashmentAllowed,
+                                              negativeBalanceAllowed: rule.negativeBalanceAllowed,
+                                              noticePeriod: rule.noticePeriod || 0,
+                                              minServiceDays: rule.minServiceDays || 0,
+                                              attachmentRequired: !!rule.attachmentRequired,
+                                              halfDayAllowed: !!rule.halfDayAllowed,
+                                              genderEligibility: rule.genderEligibility || 'ALL',
+                                              employmentTypeEligibility: rule.employmentTypeEligibility || 'ALL'
+                                            });
+                                            setShowAddRuleModal(true);
+                                          }}
+                                          className="text-surface-550 hover:text-surface-750 p-0.5 transition-colors text-xs"
+                                          title="Duplicate Rule parameters"
+                                        >
+                                          📋
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="text-[9px] bg-primary-50 dark:bg-primary-950/20 text-primary-700 dark:text-primary-400 font-bold px-2 py-0.5 rounded">
+                                    {rule.accrualMethod}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-surface-500">
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Allocated days</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.allocatedDays} Days</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Carry Forward limit</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.carryForwardLimit} Days</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Encashable</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.encashmentAllowed ? 'Yes' : 'No'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Negative balance</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.negativeBalanceAllowed ? 'Allowed' : 'Not Allowed'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Notice Period</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.noticePeriod || 0} Days</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Min Service Days</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.minServiceDays || 0} Days</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Req. Certificate</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.attachmentRequired ? 'Yes' : 'No'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] text-surface-400 uppercase">Half Day Allow</p>
+                                    <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.halfDayAllowed ? 'Yes' : 'No'}</p>
+                                  </div>
+                                  <div className="col-span-2 border-t border-surface-100 dark:border-surface-800 pt-1.5 mt-1.5 flex gap-3 text-[10px] text-surface-450">
+                                    <span>Gender: <strong className="text-surface-700 dark:text-surface-200">{rule.genderEligibility || 'ALL'}</strong></span>
+                                    <span>Emp Type: <strong className="text-surface-700 dark:text-surface-200">{rule.employmentTypeEligibility || 'ALL'}</strong></span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {activePolicyRules.length === 0 && (
+                            <p className="text-xs text-surface-450 italic col-span-2 text-center py-6">No rules configured for the active leave policy.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub-tab Content: Assignments */}
+                    {policySubTab === 'assignments' && (
+                      <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
+                        <div className="flex justify-between items-center border-b border-surface-150 dark:border-surface-800 pb-3">
+                          <div>
+                            <h3 className="font-bold text-sm">DNA Scope Assignments</h3>
+                            <p className="text-[11px] text-surface-550 font-semibold mt-0.5">Segment configurations mapping departments, grades, or employment types to this policy.</p>
+                          </div>
+                          {isAdminOrManager && (
+                            <button
+                              onClick={() => {
+                                setNewAssignment({
+                                  policyId: selectedPolicy.id || '',
+                                  organizationId: '',
+                                  businessUnitId: '',
+                                  departmentId: '',
+                                  gradeId: '',
+                                  bandId: '',
+                                  employmentTypeId: ''
+                                });
+                                setShowAddAssignmentModal(true);
+                              }}
+                              className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Assign Policy
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          {policyAssignmentsForId.map((assignment, idx) => (
+                            <div key={assignment.id || idx} className="p-3 border border-surface-200 dark:border-surface-750 rounded-xl bg-surface-50/20 dark:bg-surface-900/5 flex items-center justify-between">
+                              <div className="flex flex-wrap gap-2 items-center text-xs font-semibold text-surface-600">
+                                <span className="text-surface-450 text-[10px] uppercase font-bold tracking-wide">Filters:</span>
+                                {assignment.departmentId && (
+                                  <span className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400 px-2 py-0.5 rounded font-mono">
+                                    Dept: {assignment.departmentId.slice(0, 8)}...
+                                  </span>
+                                )}
+                                {assignment.gradeId && (
+                                  <span className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-450 px-2 py-0.5 rounded font-mono">
+                                    Grade: {assignment.gradeId.slice(0, 8)}...
+                                  </span>
+                                )}
+                                {assignment.employmentTypeId && (
+                                  <span className="bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-450 px-2 py-0.5 rounded font-mono">
+                                    Emp Type: {assignment.employmentTypeId.slice(0, 8)}...
+                                  </span>
+                                )}
+                                {!assignment.departmentId && !assignment.gradeId && !assignment.employmentTypeId && (
+                                  <span className="bg-surface-100 text-surface-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">Global Fallback</span>
+                                )}
+                              </div>
+                              {isAdminOrManager && (
+                                <button
+                                  onClick={() => handleDeleteAssignment(assignment.id || '', selectedPolicy.id || '')}
+                                  className="text-rose-500 hover:text-rose-700 p-1 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded"
+                                  title="Unassign Policy segment"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {policyAssignmentsForId.length === 0 && (
+                            <p className="text-xs text-surface-450 italic text-center py-4">No segment assignments mapped for this policy.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub-tab Content: Versions */}
+                    {policySubTab === 'versions' && (
+                      <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
+                        <div>
+                          <h3 className="font-bold text-sm">Policy Version Snapshots</h3>
+                          <p className="text-[11px] text-surface-550 font-semibold mt-0.5">Historical snapshots of policy configuration rules, captured automatically upon update.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                          {policyVersions.map((version) => (
+                            <div key={version.id} className="p-4 border border-surface-200 dark:border-surface-750 rounded-xl bg-surface-50/20 dark:bg-surface-900/5 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
+                                  Version {version.version}
+                                </span>
+                                <span className="text-[10px] text-surface-400 font-mono">
+                                  Captured: {new Date(version.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-surface-500">
+                                Modified By: <strong className="text-surface-700 dark:text-surface-300">{version.createdBy}</strong>
+                              </p>
+                              <div className="bg-surface-100/50 dark:bg-surface-950/30 p-2.5 rounded-lg border dark:border-surface-800 text-[10px] font-mono text-surface-600 dark:text-surface-400 overflow-x-auto max-h-36">
+                                <span className="font-bold text-primary-600 block mb-1">Snapshot Rules Config:</span>
+                                {(() => {
+                                  try {
+                                    const rules = JSON.parse(version.rulesSnapshot);
+                                    if (Array.isArray(rules)) {
+                                      return (
+                                        <ul className="list-disc pl-4 space-y-1">
+                                          {rules.map((ruleSnap: any, sIdx: number) => {
+                                            const typeDetails = leaveTypes.find(t => t.id === ruleSnap.leaveTypeId);
+                                            return (
+                                              <li key={sIdx}>
+                                                <strong>{typeDetails?.name || ruleSnap.leaveTypeId}</strong>: {ruleSnap.allocatedDays} days, {ruleSnap.accrualMethod || ruleSnap.accrualFrequency}, CF limit {ruleSnap.carryForwardLimit} days
+                                              </li>
+                                            );
+                                          })}
+                                        </ul>
+                                      );
+                                    }
+                                  } catch (e) {}
+                                  return <span>{version.rulesSnapshot}</span>;
+                                })()}
+                              </div>
+                            </div>
+                          ))}
+                          {policyVersions.length === 0 && (
+                            <p className="text-xs text-surface-450 italic text-center py-4">No historical version snapshots recorded yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub-tab Content: Audits */}
+                    {policySubTab === 'audits' && (
+                      <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
+                        <div>
+                          <h3 className="font-bold text-sm">Policy Activity Audit Logs</h3>
+                          <p className="text-[11px] text-surface-550 font-semibold mt-0.5">Audit log of modifications, activations, assignments, and structural updates.</p>
+                        </div>
+
+                        <div className="overflow-x-auto border border-surface-200 dark:border-surface-800 rounded-xl">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="text-[10px] text-surface-400 font-bold uppercase tracking-wider border-b border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-800/20">
+                                <th className="p-3">Date</th>
+                                <th className="p-3">User</th>
+                                <th className="p-3">Action</th>
+                                <th className="p-3">Old Value</th>
+                                <th className="p-3">New Value</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-surface-150 dark:divide-surface-800">
+                              {policyAudits.map((audit) => (
+                                <tr key={audit.id} className="hover:bg-surface-50/50 dark:hover:bg-surface-800/10 font-medium">
+                                  <td className="p-3 text-[10px] font-mono text-surface-500 whitespace-nowrap">
+                                    {new Date(audit.createdAt).toLocaleString()}
+                                  </td>
+                                  <td className="p-3 font-semibold text-surface-700 dark:text-surface-200">
+                                    {audit.createdBy}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-50 text-primary-700 dark:bg-primary-950/20 dark:text-primary-400 uppercase tracking-wide">
+                                      {audit.action}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 font-mono text-[10px] text-surface-600 dark:text-surface-400 max-w-[120px] truncate" title={audit.oldValue}>
+                                    {audit.oldValue || '-'}
+                                  </td>
+                                  <td className="p-3 font-mono text-[10px] text-surface-600 dark:text-surface-400 max-w-[120px] truncate" title={audit.newValue}>
+                                    {audit.newValue || '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                              {policyAudits.length === 0 && (
+                                <tr>
+                                  <td colSpan={5} className="p-6 text-center text-surface-450 italic">No audits recorded.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-white dark:bg-surface-850 p-12 text-center rounded-xl border border-surface-200 dark:border-surface-800 text-surface-450 italic flex flex-col items-center justify-center space-y-2">
+                    <Sliders className="w-10 h-10 text-surface-300" />
+                    <p className="font-semibold text-sm">Select a Leave Policy from the sidebar to manage settings.</p>
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-2">
-                {leavePolicies.map(policy => (
-                  <button
-                    key={policy.id}
-                    onClick={() => setSelectedPolicyId(policy.id || '')}
-                    className={`w-full p-4 rounded-xl text-left border flex items-center justify-between transition-all ${
-                      selectedPolicyId === policy.id
-                        ? 'bg-primary-50/50 border-primary-300 text-primary-900 dark:bg-primary-950/20 dark:border-primary-800'
-                        : 'bg-transparent border-surface-200 dark:border-surface-800 hover:bg-surface-50'
-                    }`}
-                  >
-                    <div>
-                      <h4 className="font-bold text-sm">{policy.policyName}</h4>
-                      <p className="text-xs text-surface-500 font-mono mt-0.5">{policy.policyCode}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-surface-400" />
-                  </button>
-                ))}
-              </div>
             </div>
-
-            {/* Policy Rules & Assignments */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* Rules Grid */}
-              <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
-                <div className="flex justify-between items-center border-b border-surface-150 dark:border-surface-800 pb-3">
-                  <div>
-                    <h3 className="font-bold text-base">Policy Accrual & Allocation Rules</h3>
-                    <p className="text-xs text-surface-550 font-semibold mt-0.5">Parameters governing yearly credit allocations, carry limits, and encashments.</p>
-                  </div>
-                  {isAdminOrManager && (
-                    <button
-                      onClick={() => setShowAddRuleModal(true)}
-                      className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add Rule
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {activePolicyRules.map((rule) => {
-                    const typeDetails = leaveTypes.find(t => t.id === rule.leaveTypeId);
-                    return (
-                      <div key={rule.id} className="p-4 border border-surface-200 dark:border-surface-750 rounded-xl bg-surface-50/30 dark:bg-surface-900/5 space-y-3">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-sm">{typeDetails?.name || 'Leave Type Rule'}</h4>
-                          <span className="text-[10px] bg-primary-50 dark:bg-primary-950/20 text-primary-700 dark:text-primary-400 font-bold px-2 py-0.5 rounded">
-                            {rule.accrualMethod}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs font-medium text-surface-500">
-                          <div>
-                            <p>Allocated days</p>
-                            <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.allocatedDays} Days</p>
-                          </div>
-                          <div>
-                            <p>Carry Forward limit</p>
-                            <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.carryForwardLimit} Days</p>
-                          </div>
-                          <div>
-                            <p>Encashable</p>
-                            <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.encashmentAllowed ? 'Yes' : 'No'}</p>
-                          </div>
-                          <div>
-                            <p>Negative balance</p>
-                            <p className="font-bold text-surface-800 dark:text-white mt-0.5">{rule.negativeBalanceAllowed ? 'Allowed' : 'Not Allowed'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {activePolicyRules.length === 0 && (
-                    <p className="text-xs text-surface-450 italic col-span-2 text-center py-6">No rules configured for the active leave policy.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Policy Assignments List */}
-              <div className="bg-white dark:bg-surface-850 p-5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-4">
-                <div className="flex justify-between items-center border-b border-surface-150 dark:border-surface-800 pb-3">
-                  <div>
-                    <h3 className="font-bold text-base">Policy Eligibility & Assignments</h3>
-                    <p className="text-xs text-surface-550 font-semibold mt-0.5">Define which segments of the organization DNA map to this leave policy.</p>
-                  </div>
-                  {isAdminOrManager && (
-                    <button
-                      onClick={() => setShowAddAssignmentModal(true)}
-                      className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Assign Policy
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {policyAssignments
-                    .filter(a => a.policyId === selectedPolicyId)
-                    .map((assignment, idx) => (
-                      <div key={idx} className="p-3 border border-surface-200 dark:border-surface-750 rounded-xl bg-surface-50/20 dark:bg-surface-900/5 flex items-center justify-between">
-                        <div className="flex flex-wrap gap-2 items-center text-xs font-semibold text-surface-600">
-                          <span>Eligibility Parameters:</span>
-                          {assignment.departmentId && (
-                            <span className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-400 px-2 py-0.5 rounded font-mono">
-                              Dept: {assignment.departmentId.slice(0, 8)}
-                            </span>
-                          )}
-                          {assignment.gradeId && (
-                            <span className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-450 px-2 py-0.5 rounded font-mono">
-                              Grade: {assignment.gradeId.slice(0, 8)}
-                            </span>
-                          )}
-                          {assignment.employmentTypeId && (
-                            <span className="bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-450 px-2 py-0.5 rounded font-mono">
-                              Emp Type: {assignment.employmentTypeId.slice(0, 8)}
-                            </span>
-                          )}
-                          {!assignment.departmentId && !assignment.gradeId && !assignment.employmentTypeId && (
-                            <span className="bg-surface-100 text-surface-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">Global Fallback</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  {policyAssignments.filter(a => a.policyId === selectedPolicyId).length === 0 && (
-                    <p className="text-xs text-surface-450 italic text-center py-4">No segment assignments mapped for this policy.</p>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* LEAVE TYPES ADMINISTRATION TAB */}
         {activeTab === 'leaveTypesAdmin' && (
@@ -2509,12 +3323,11 @@ export function LeaveScreen() {
                 
                 <form onSubmit={handleSubmitCompOff} className="space-y-4 text-xs font-semibold text-surface-500">
                   <div>
-                    <label className="uppercase">Work Date</label>
-                    <input 
-                      type="date" required
+                    <DatePicker
+                      label="Work Date"
                       value={compOffForm.workDate}
-                      onChange={e => setCompOffForm({ ...compOffForm, workDate: e.target.value })}
-                      className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                      onChange={v => setCompOffForm({ ...compOffForm, workDate: v })}
+                      required
                     />
                   </div>
                   <div>
@@ -2640,7 +3453,7 @@ export function LeaveScreen() {
               {/* Liability Dashboard */}
               <div className="bg-white dark:bg-surface-850 p-6 rounded-xl border border-surface-200 dark:border-surface-800 space-y-5">
                 <h3 className="font-bold text-base flex items-center gap-1.5">
-                  <DollarSign className="w-5 h-5 text-emerald-500" />
+                  <IndianRupee className="w-5 h-5 text-emerald-500" />
                   Leave Liability & Accrual Projections
                 </h3>
                 
@@ -2651,11 +3464,11 @@ export function LeaveScreen() {
                   </div>
                   <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02]">
                     <p className="text-[10px] text-surface-450 uppercase font-bold">Total Financial Liability</p>
-                    <p className="text-2xl font-extrabold mt-1 text-emerald-450">${liabilityDashboard?.totalLiabilityCost?.toLocaleString() || '0.00'}</p>
+                    <p className="text-2xl font-extrabold mt-1 text-emerald-450">{formatCurrency(liabilityDashboard?.totalLiabilityCost || 0)}</p>
                   </div>
                   <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02]">
                     <p className="text-[10px] text-surface-450 uppercase font-bold">Projected Q4 Liability</p>
-                    <p className="text-2xl font-extrabold mt-1 text-purple-400">${(liabilityDashboard?.totalLiabilityCost * 1.15 || 0).toLocaleString(undefined, {maximumFractionDigits:0})}</p>
+                    <p className="text-2xl font-extrabold mt-1 text-purple-400">{formatCurrency(Math.round(liabilityDashboard?.totalLiabilityCost * 1.15 || 0))}</p>
                   </div>
                 </div>
               </div>
@@ -2912,23 +3725,19 @@ export function LeaveScreen() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="uppercase tracking-wider">Start Date</label>
-                  <input 
-                    type="date" 
-                    required
+                  <DatePicker
+                    label="Start Date"
                     value={newRequest.startDate}
-                    onChange={e => setNewRequest({ ...newRequest, startDate: e.target.value })}
-                    className="w-full mt-1.5 px-3.5 py-2.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-800 dark:text-surface-200 font-bold"
+                    onChange={v => setNewRequest({ ...newRequest, startDate: v })}
+                    required
                   />
                 </div>
                 <div>
-                  <label className="uppercase tracking-wider">End Date</label>
-                  <input 
-                    type="date" 
-                    required
+                  <DatePicker
+                    label="End Date"
                     value={newRequest.endDate}
-                    onChange={e => setNewRequest({ ...newRequest, endDate: e.target.value })}
-                    className="w-full mt-1.5 px-3.5 py-2.5 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary-500/20 text-surface-800 dark:text-surface-200 font-bold"
+                    onChange={v => setNewRequest({ ...newRequest, endDate: v })}
+                    required
                   />
                 </div>
               </div>
@@ -3133,12 +3942,11 @@ export function LeaveScreen() {
                 />
               </div>
               <div>
-                <label className="uppercase">Holiday Date</label>
-                <input 
-                  type="date" required
+                <DatePicker
+                  label="Holiday Date"
                   value={newHolidayDay.holidayDate}
-                  onChange={e => setNewHolidayDay({ ...newHolidayDay, holidayDate: e.target.value })}
-                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  onChange={v => setNewHolidayDay({ ...newHolidayDay, holidayDate: v })}
+                  required
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -3156,10 +3964,128 @@ export function LeaveScreen() {
         </div>
       )}
 
+      {/* EDIT POLICY DIALOG */}
+      {showEditPolicyModal && (
+        <div className="fixed inset-0 bg-surface-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-center border-b border-surface-100 dark:border-surface-750 pb-3">
+              <h3 className="text-lg font-bold">Edit Leave Policy</h3>
+              <button onClick={() => setShowEditPolicyModal(false)} className="text-surface-400 text-xl font-bold">&times;</button>
+            </div>
+            <form onSubmit={handleUpdatePolicy} className="space-y-4 mt-4 text-xs font-semibold text-surface-500">
+              <div>
+                <label className="uppercase">Policy Name</label>
+                <input 
+                  type="text" required
+                  value={editPolicyForm.policyName}
+                  onChange={e => setEditPolicyForm({ ...editPolicyForm, policyName: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                />
+              </div>
+              <div>
+                <label className="uppercase">Policy Code</label>
+                <input 
+                  type="text" required
+                  value={editPolicyForm.policyCode}
+                  onChange={e => setEditPolicyForm({ ...editPolicyForm, policyCode: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm font-mono"
+                />
+              </div>
+              <div>
+                <label className="uppercase">Description</label>
+                <textarea 
+                  rows={2} required
+                  value={editPolicyForm.description}
+                  onChange={e => setEditPolicyForm({ ...editPolicyForm, description: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <DatePicker
+                    label="Effective Date"
+                    value={editPolicyForm.effectiveFrom}
+                    onChange={v => setEditPolicyForm({ ...editPolicyForm, effectiveFrom: v })}
+                    required
+                  />
+                </div>
+                <div>
+                  <DatePicker
+                    label="Expiry Date"
+                    value={editPolicyForm.effectiveTo}
+                    onChange={v => setEditPolicyForm({ ...editPolicyForm, effectiveTo: v })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Status</label>
+                  <select 
+                    value={editPolicyForm.status}
+                    onChange={e => setEditPolicyForm({ ...editPolicyForm, status: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="uppercase">Scope</label>
+                  <select 
+                    value={editPolicyForm.organizationScope}
+                    onChange={e => setEditPolicyForm({ ...editPolicyForm, organizationScope: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="GLOBAL">Global</option>
+                    <option value="DEPARTMENTAL">Departmental</option>
+                    <option value="TENANT">Tenant Only</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold mt-2">Update Policy</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CLONE POLICY DIALOG */}
+      {showClonePolicyModal && (
+        <div className="fixed inset-0 bg-surface-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-center border-b border-surface-100 dark:border-surface-750 pb-3">
+              <h3 className="text-lg font-bold">Clone Policy</h3>
+              <button onClick={() => setShowClonePolicyModal(false)} className="text-surface-400 text-xl font-bold">&times;</button>
+            </div>
+            <form onSubmit={handleClonePolicy} className="space-y-4 mt-4 text-xs font-semibold text-surface-500">
+              <div>
+                <label className="uppercase">New Policy Name</label>
+                <input 
+                  type="text" required placeholder="e.g. Sales Department Policy"
+                  value={clonePolicyForm.newName}
+                  onChange={e => setClonePolicyForm({ ...clonePolicyForm, newName: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                />
+              </div>
+              <div>
+                <label className="uppercase">New Policy Code</label>
+                <input 
+                  type="text" required placeholder="e.g. POL-SALES"
+                  value={clonePolicyForm.newCode}
+                  onChange={e => setClonePolicyForm({ ...clonePolicyForm, newCode: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm font-mono"
+                />
+              </div>
+              <button type="submit" className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold mt-2">Confirm Clone</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ADD POLICY DIALOG */}
       {showAddPolicyModal && (
         <div className="fixed inset-0 bg-surface-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl animate-scale-up">
             <div className="flex justify-between items-center border-b border-surface-100 dark:border-surface-750 pb-3">
               <h3 className="text-lg font-bold">Create Leave Policy</h3>
               <button onClick={() => setShowAddPolicyModal(false)} className="text-surface-400 text-xl font-bold">&times;</button>
@@ -3180,7 +4106,7 @@ export function LeaveScreen() {
                   type="text" required placeholder="e.g. POL-TECH"
                   value={newPolicy.policyCode}
                   onChange={e => setNewPolicy({ ...newPolicy, policyCode: e.target.value })}
-                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm font-mono"
                 />
               </div>
               <div>
@@ -3192,6 +4118,48 @@ export function LeaveScreen() {
                   className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <DatePicker
+                    label="Effective From"
+                    value={newPolicy.effectiveFrom}
+                    onChange={v => setNewPolicy({ ...newPolicy, effectiveFrom: v })}
+                    required
+                  />
+                </div>
+                <div>
+                  <DatePicker
+                    label="Effective To"
+                    value={newPolicy.effectiveTo}
+                    onChange={v => setNewPolicy({ ...newPolicy, effectiveTo: v })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Scope</label>
+                  <select 
+                    value={newPolicy.organizationScope}
+                    onChange={e => setNewPolicy({ ...newPolicy, organizationScope: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="GLOBAL">Global</option>
+                    <option value="DEPARTMENTAL">Departmental</option>
+                    <option value="TENANT">Tenant Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="uppercase">Initial Status</label>
+                  <select 
+                    value={newPolicy.status}
+                    onChange={e => setNewPolicy({ ...newPolicy, status: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+              </div>
               <button type="submit" className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold mt-2">Create Policy</button>
             </form>
           </div>
@@ -3201,7 +4169,7 @@ export function LeaveScreen() {
       {/* ADD RULE DIALOG */}
       {showAddRuleModal && (
         <div className="fixed inset-0 bg-surface-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-scale-up">
             <div className="flex justify-between items-center border-b border-surface-100 dark:border-surface-750 pb-3">
               <h3 className="text-lg font-bold">Add Policy Rule</h3>
               <button onClick={() => setShowAddRuleModal(false)} className="text-surface-400 text-xl font-bold">&times;</button>
@@ -3239,20 +4207,402 @@ export function LeaveScreen() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Accrual Method</label>
+                  <select 
+                    value={newRule.accrualMethod}
+                    onChange={e => setNewRule({ ...newRule, accrualMethod: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="YEARLY">Yearly Upfront</option>
+                    <option value="MONTHLY">Monthly Accrued</option>
+                    <option value="QUARTERLY">Quarterly Accrued</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="uppercase">Notice Period (Days)</label>
+                  <input 
+                    type="number" required
+                    value={newRule.noticePeriod}
+                    onChange={e => setNewRule({ ...newRule, noticePeriod: parseInt(e.target.value) || 0 })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Min Service (Days)</label>
+                  <input 
+                    type="number" required
+                    value={newRule.minServiceDays}
+                    onChange={e => setNewRule({ ...newRule, minServiceDays: parseInt(e.target.value) || 0 })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="uppercase">Gender Eligibility</label>
+                  <select 
+                    value={newRule.genderEligibility}
+                    onChange={e => setNewRule({ ...newRule, genderEligibility: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="ALL">All Genders</option>
+                    <option value="FEMALE">Female Only</option>
+                    <option value="MALE">Male Only</option>
+                  </select>
+                </div>
+              </div>
               <div>
-                <label className="uppercase">Accrual Method</label>
+                <label className="uppercase">Employment Type Eligibility</label>
                 <select 
-                  value={newRule.accrualMethod}
-                  onChange={e => setNewRule({ ...newRule, accrualMethod: e.target.value })}
+                  value={newRule.employmentTypeEligibility}
+                  onChange={e => setNewRule({ ...newRule, employmentTypeEligibility: e.target.value })}
                   className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
                 >
-                  <option value="YEARLY">Yearly Upfront</option>
-                  <option value="MONTHLY">Monthly Accrued</option>
-                  <option value="QUARTERLY">Quarterly Accrued</option>
+                  <option value="ALL">All Employment Types</option>
+                  <option value="FULL_TIME">Full Time</option>
+                  <option value="PART_TIME">Part Time</option>
+                  <option value="CONTRACTOR">Contractor</option>
                 </select>
               </div>
-              <button type="submit" className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold mt-2">Add Rule</button>
+              <div className="grid grid-cols-2 gap-2 bg-surface-50 dark:bg-surface-900 p-2.5 rounded-xl border">
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="add_encash"
+                    checked={newRule.encashmentAllowed}
+                    onChange={e => setNewRule({ ...newRule, encashmentAllowed: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="add_encash" className="cursor-pointer">Encashable</label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="add_neg"
+                    checked={newRule.negativeBalanceAllowed}
+                    onChange={e => setNewRule({ ...newRule, negativeBalanceAllowed: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="add_neg" className="cursor-pointer">Neg. Balance</label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="add_attach"
+                    checked={newRule.attachmentRequired}
+                    onChange={e => setNewRule({ ...newRule, attachmentRequired: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="add_attach" className="cursor-pointer">Req Certificate</label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="add_half"
+                    checked={newRule.halfDayAllowed}
+                    onChange={e => setNewRule({ ...newRule, halfDayAllowed: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="add_half" className="cursor-pointer">Half Day Allow</label>
+                </div>
+              </div>
+
+              {/* LIVE IMPACT ANALYSIS BOX */}
+              {impactData && (
+                <div className="bg-primary-50 dark:bg-primary-950/20 border border-primary-200 dark:border-primary-800 p-3 rounded-xl space-y-1 text-[11px] font-semibold text-primary-850 dark:text-primary-350">
+                  <div className="flex items-center gap-1 font-bold text-xs mb-1">
+                    <Sliders className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Policy Impact Preview</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Affected Employees:</span>
+                    <span className="font-bold text-surface-900 dark:text-white">{impactData.affectedEmployeesCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Affected Departments:</span>
+                    <span className="font-bold text-surface-900 dark:text-white">{impactData.affectedDepartmentsCount}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-primary-100 dark:border-primary-900 pt-1 mt-1">
+                    <span>Allocation Shift:</span>
+                    <span className="font-bold text-surface-900 dark:text-white">
+                      {impactData.currentAllocatedDays || 0} → {impactData.newAllocatedDays} Days
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold mt-2 shadow-md">Add Rule</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT RULE DIALOG */}
+      {showEditRuleModal && selectedRuleForEdit && (
+        <div className="fixed inset-0 bg-surface-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-scale-up">
+            <div className="flex justify-between items-center border-b border-surface-100 dark:border-surface-750 pb-3">
+              <h3 className="text-lg font-bold">Edit Policy Rule</h3>
+              <button onClick={() => setShowEditRuleModal(false)} className="text-surface-400 text-xl font-bold">&times;</button>
+            </div>
+            <form onSubmit={handleUpdatePolicyRule} className="space-y-4 mt-4 text-xs font-semibold text-surface-500">
+              <div>
+                <label className="uppercase">Leave Type</label>
+                <select 
+                  value={editRuleForm.leaveTypeId}
+                  disabled
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-100 dark:bg-surface-800 border rounded-xl text-sm cursor-not-allowed"
+                >
+                  {leaveTypes.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Leave Name</label>
+                  <input 
+                    type="text" required
+                    value={editRuleForm.leaveTypeName}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, leaveTypeName: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="uppercase">Leave Code</label>
+                  <input 
+                    type="text" required
+                    value={editRuleForm.leaveTypeCode}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, leaveTypeCode: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm font-mono"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Allocated Days</label>
+                  <input 
+                    type="number" required
+                    value={editRuleForm.allocatedDays}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, allocatedDays: parseInt(e.target.value) || 12 })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="uppercase">Carry Limit</label>
+                  <input 
+                    type="number" required
+                    value={editRuleForm.carryForwardLimit}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, carryForwardLimit: parseInt(e.target.value) || 5 })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Accrual Method</label>
+                  <select 
+                    value={editRuleForm.accrualMethod}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, accrualMethod: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="YEARLY">Yearly Upfront</option>
+                    <option value="MONTHLY">Monthly Accrued</option>
+                    <option value="QUARTERLY">Quarterly Accrued</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="uppercase">Notice Period (Days)</label>
+                  <input 
+                    type="number" required
+                    value={editRuleForm.noticePeriod}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, noticePeriod: parseInt(e.target.value) || 0 })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="uppercase">Min Service (Days)</label>
+                  <input 
+                    type="number" required
+                    value={editRuleForm.minServiceDays}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, minServiceDays: parseInt(e.target.value) || 0 })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="uppercase">Gender Eligibility</label>
+                  <select 
+                    value={editRuleForm.genderEligibility}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, genderEligibility: e.target.value })}
+                    className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                  >
+                    <option value="ALL">All Genders</option>
+                    <option value="FEMALE">Female Only</option>
+                    <option value="MALE">Male Only</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="uppercase">Employment Type Eligibility</label>
+                <select 
+                  value={editRuleForm.employmentTypeEligibility}
+                  onChange={e => setEditRuleForm({ ...editRuleForm, employmentTypeEligibility: e.target.value })}
+                  className="w-full mt-1.5 px-3 py-2 bg-surface-50 dark:bg-surface-900 border rounded-xl text-sm"
+                >
+                  <option value="ALL">All Employment Types</option>
+                  <option value="FULL_TIME">Full Time</option>
+                  <option value="PART_TIME">Part Time</option>
+                  <option value="CONTRACTOR">Contractor</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2 bg-surface-50 dark:bg-surface-900 p-2.5 rounded-xl border">
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="edit_encash"
+                    checked={editRuleForm.encashmentAllowed}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, encashmentAllowed: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="edit_encash" className="cursor-pointer">Encashable</label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="edit_neg"
+                    checked={editRuleForm.negativeBalanceAllowed}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, negativeBalanceAllowed: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="edit_neg" className="cursor-pointer">Neg. Balance</label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="edit_attach"
+                    checked={editRuleForm.attachmentRequired}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, attachmentRequired: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="edit_attach" className="cursor-pointer">Req Certificate</label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="checkbox" id="edit_half"
+                    checked={editRuleForm.halfDayAllowed}
+                    onChange={e => setEditRuleForm({ ...editRuleForm, halfDayAllowed: e.target.checked })}
+                    className="rounded text-primary-600 h-4 w-4"
+                  />
+                  <label htmlFor="edit_half" className="cursor-pointer">Half Day Allow</label>
+                </div>
+              </div>
+
+              {/* LIVE IMPACT ANALYSIS BOX */}
+              {impactData && (
+                <div className="bg-primary-50 dark:bg-primary-950/20 border border-primary-200 dark:border-primary-800 p-3 rounded-xl space-y-1 text-[11px] font-semibold text-primary-850 dark:text-primary-350">
+                  <div className="flex items-center gap-1 font-bold text-xs mb-1">
+                    <Sliders className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Policy Impact Preview</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Affected Employees:</span>
+                    <span className="font-bold text-surface-900 dark:text-white">{impactData.affectedEmployeesCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Affected Departments:</span>
+                    <span className="font-bold text-surface-900 dark:text-white">{impactData.affectedDepartmentsCount}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-primary-100 dark:border-primary-900 pt-1 mt-1">
+                    <span>Allocation Shift:</span>
+                    <span className="font-bold text-surface-900 dark:text-white">
+                      {impactData.currentAllocatedDays || 0} → {impactData.newAllocatedDays} Days
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold mt-2 shadow-md">Save Changes</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PRE-SAVE POLICY IMPACT ANALYSIS DIALOG */}
+      {showImpactDialog && (
+        <div className="fixed inset-0 bg-surface-950/75 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-amber-300 dark:border-amber-500 w-full max-w-md p-6 shadow-2xl animate-scale-up space-y-4">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-surface-150 dark:border-surface-750">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <h3 className="text-base font-extrabold text-amber-700 dark:text-amber-400">Pre-Save Impact Analysis</h3>
+                <p className="text-[10px] text-surface-400 font-medium">Verify employee balance changes before final authorization</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 py-1 text-xs text-surface-550 font-semibold leading-relaxed">
+              <p>
+                You are modifying leave configurations. The system-level rules will recalculate and regenerate leave wallets immediately for all affected employee cohorts.
+              </p>
+
+              <div className="bg-surface-50 dark:bg-surface-900 rounded-xl p-3.5 border border-surface-200 dark:border-surface-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-surface-450 font-bold uppercase tracking-wider text-[9px]">Affected Employees</span>
+                  <span className="font-extrabold text-sm px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+                    {impactData?.affectedEmployeesCount ?? 0} Employees
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-surface-450 font-bold uppercase tracking-wider text-[9px]">Affected Departments</span>
+                  <span className="font-extrabold text-sm px-2 py-0.5 rounded bg-surface-100 dark:bg-surface-850 text-surface-800 dark:text-surface-200">
+                    {impactData?.affectedDepartmentsCount ?? 0} Departments
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-surface-150 dark:border-surface-800 pt-2.5 mt-1">
+                  <span className="text-surface-450 font-bold uppercase tracking-wider text-[9px]">Allocation Shift</span>
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-surface-800 dark:text-white">
+                    <span className="line-through text-surface-400">
+                      {impactData?.currentAllocatedDays ?? 0} Days
+                    </span>
+                    <span className="text-primary-500">→</span>
+                    <span className="font-extrabold text-primary-600 dark:text-primary-400">
+                      {impactData?.newAllocatedDays ?? 0} Days
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-850 p-3 rounded-xl flex gap-2">
+                <span className="text-amber-500 text-sm">💡</span>
+                <p className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold leading-relaxed">
+                  Saving will trigger background jobs to update leave ledgers, transaction records, and workforce planning calendars.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-surface-150 dark:border-surface-750">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImpactDialog(false);
+                  setImpactAction(null);
+                }}
+                className="flex-1 py-2 text-xs font-bold bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-750 rounded-xl transition-all"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (impactAction === 'create') {
+                    submitCreateRule();
+                  } else if (impactAction === 'update') {
+                    submitUpdateRule();
+                  }
+                }}
+                className="flex-1 py-2 text-xs font-bold bg-amber-550 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-550 text-white rounded-xl transition-all shadow-md shadow-amber-500/10"
+              >
+                Confirm & Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3260,7 +4610,7 @@ export function LeaveScreen() {
       {/* ADD ASSIGNMENT DIALOG */}
       {showAddAssignmentModal && (
         <div className="fixed inset-0 bg-surface-950/65 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl">
+          <div className="bg-white dark:bg-surface-850 rounded-2xl border border-surface-200 dark:border-surface-800 w-full max-w-sm p-6 shadow-2xl animate-scale-up">
             <div className="flex justify-between items-center border-b border-surface-100 dark:border-surface-750 pb-3">
               <h3 className="text-lg font-bold">Assign Policy Eligibility</h3>
               <button onClick={() => setShowAddAssignmentModal(false)} className="text-surface-400 text-xl font-bold">&times;</button>

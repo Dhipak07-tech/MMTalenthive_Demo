@@ -30,4 +30,10 @@ public class LeavePolicy extends BaseEntity {
 
     @Column(name = "active", nullable = false)
     private boolean active = true;
+
+    @Column(name = "status")
+    private String status = "ACTIVE";
+
+    @Column(name = "organization_scope")
+    private String organizationScope;
 }

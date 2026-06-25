@@ -6,7 +6,7 @@ import com.managemyopz.twin.repository.EmployeeTwinRepository;
 import com.managemyopz.orgdna.repository.DesignationRepository;
 import com.managemyopz.orgdna.repository.DepartmentRepository;
 import com.managemyopz.security.service.UserProvisioningService;
-import lombok.RequiredArgsConstructor;
+import com.managemyopz.recognition.service.RecognitionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -19,16 +19,19 @@ public class UserProvisioningOnboardingListener {
     private final DesignationRepository designationRepository;
     private final DepartmentRepository departmentRepository;
     private final UserProvisioningService userProvisioningService;
+    private final RecognitionService recognitionService;
 
     public UserProvisioningOnboardingListener(
             EmployeeTwinRepository employeeTwinRepository,
             DesignationRepository designationRepository,
             DepartmentRepository departmentRepository,
-            UserProvisioningService userProvisioningService) {
+            UserProvisioningService userProvisioningService,
+            RecognitionService recognitionService) {
         this.employeeTwinRepository = employeeTwinRepository;
         this.designationRepository = designationRepository;
         this.departmentRepository = departmentRepository;
         this.userProvisioningService = userProvisioningService;
+        this.recognitionService = recognitionService;
         System.out.println("=== UserProvisioningOnboardingListener INITIALIZED ===");
     }
 
@@ -87,6 +90,19 @@ public class UserProvisioningOnboardingListener {
                     roleCode,
                     event.getTriggeredBy()
             );
+
+            // Provision Recognition Wallet
+            try {
+                String previousTenant = com.managemyopz.shared.entity.TenantContext.getCurrentTenant();
+                try {
+                    com.managemyopz.shared.entity.TenantContext.setCurrentTenant(twin.getTenantId());
+                    recognitionService.getOrCreateWallet(twin.getId());
+                } finally {
+                    com.managemyopz.shared.entity.TenantContext.setCurrentTenant(previousTenant);
+                }
+            } catch (Exception e) {
+                log.error("Failed to provision Recognition Wallet for new employee {}", twin.getId(), e);
+            }
         });
     }
 }

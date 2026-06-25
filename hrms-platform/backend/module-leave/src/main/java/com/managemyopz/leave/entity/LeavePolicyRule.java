@@ -54,4 +54,22 @@ public class LeavePolicyRule extends BaseEntity {
 
     @Column(name = "min_days_notice")
     private Integer minDaysNotice;
+
+    @Column(name = "notice_period")
+    private Integer noticePeriod;
+
+    @Column(name = "min_service_days")
+    private Integer minServiceDays;
+
+    @Column(name = "attachment_required", nullable = false)
+    private boolean attachmentRequired = false;
+
+    @Column(name = "half_day_allowed", nullable = false)
+    private boolean halfDayAllowed = false;
+
+    @Column(name = "gender_eligibility")
+    private String genderEligibility = "ALL";
+
+    @Column(name = "employment_type_eligibility")
+    private String employmentTypeEligibility = "ALL";
 }

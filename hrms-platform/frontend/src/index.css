@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ══════════════════════════════════════════════════════════════
-   ManageMyOpz HR Platform — Design System
+   ManageMyTalenthive HR Platform — Design System
    Premium Enterprise Design Tokens & Typography overrides
    ══════════════════════════════════════════════════════════════ */
 
@@ -189,3 +189,37 @@
 .animate-fade-in { animation: fadeIn 0.4s ease-out; }
 .animate-slide-in { animation: slideInLeft 0.3s ease-out; }
 .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* ── ATS Layout Width Fixes ────────────────────────────────────── */
+
+.ats-layout {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.ats-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+.ats-analytics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .ats-analytics-row {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.ats-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+

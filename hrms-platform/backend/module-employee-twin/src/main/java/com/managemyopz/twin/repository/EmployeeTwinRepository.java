@@ -20,6 +20,9 @@ public interface EmployeeTwinRepository extends JpaRepository<EmployeeTwin, UUID
     @Query("SELECT e FROM EmployeeTwin e WHERE e.deleted = false AND e.tenantId = :tenantId")
     List<EmployeeTwin> findAllActiveByTenant(@Param("tenantId") String tenantId);
 
+    @Query("SELECT e FROM EmployeeTwin e WHERE e.tenantId = :tenantId")
+    List<EmployeeTwin> findAllByTenant(@Param("tenantId") String tenantId);
+
     @Query("SELECT COUNT(e) FROM EmployeeTwin e WHERE e.deleted = false AND e.tenantId = :tenantId")
     long countByTenant(@Param("tenantId") String tenantId);
 

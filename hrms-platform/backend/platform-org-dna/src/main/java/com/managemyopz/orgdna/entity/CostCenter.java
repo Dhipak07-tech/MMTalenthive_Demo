@@ -19,6 +19,6 @@ public class CostCenter extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonBackReference("org-ccs")
     private Organization organization;
 }

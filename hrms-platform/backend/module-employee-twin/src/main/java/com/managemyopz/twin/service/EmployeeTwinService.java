@@ -21,9 +21,21 @@ public interface EmployeeTwinService {
 
     void deleteEmployee(UUID id, String triggeredBy);
 
+    EmployeeTwin archiveEmployee(UUID id, String reason, String triggeredBy);
+
+    EmployeeTwin restoreEmployee(UUID id, String triggeredBy);
+
+    void bulkArchive(List<UUID> ids, String reason, String triggeredBy);
+
+    void bulkReassignManager(List<UUID> ids, UUID managerId, LocalDate effectiveDate, String reason, String triggeredBy);
+
+    void bulkTerminate(List<UUID> ids, LocalDate terminationDate, LocalDate finalWorkingDay, String reason, String triggeredBy);
+
     EmployeeTwin getById(UUID id);
 
     List<EmployeeTwin> getAllActive();
+
+    List<EmployeeTwin> getAll(boolean showArchived);
 
     int calculateProfileCompletion(UUID id);
 

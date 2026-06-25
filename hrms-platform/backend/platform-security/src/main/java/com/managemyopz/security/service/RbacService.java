@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class RbacService {
 
     private final UserRepository userRepository;
+    private final SecurityPlatformService securityPlatformService;
 
     private static final Map<String, Integer> ROLE_PRIORITIES = Map.of(
             "ROLE_ULTRA_SUPER_ADMIN", 100,
@@ -82,20 +83,91 @@ public class RbacService {
             return true;
         }
 
-        // Check user roles' permissions
-        boolean hasIt = user.getRoles().stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .anyMatch(permission -> permissionKey.equals(permission.getPermissionKey()));
+        String resolvedKey = permissionKey;
+        if ("EMPLOYEE_VIEW".equals(permissionKey)) resolvedKey = "employee:view";
+        else if ("EMPLOYEE_EDIT".equals(permissionKey)) resolvedKey = "employee:update";
+        else if ("EMPLOYEE_TERMINATE".equals(permissionKey)) resolvedKey = "employee:terminate";
+        else if ("EMPLOYEE_ARCHIVE".equals(permissionKey)) resolvedKey = "employee:archive";
+        else if ("EMPLOYEE_RESTORE".equals(permissionKey)) resolvedKey = "employee:restore";
+        else if ("LEAVE_POLICY_VIEW".equals(permissionKey)) resolvedKey = "leave:view";
+        else if ("LEAVE_POLICY_CREATE".equals(permissionKey)) resolvedKey = "leave:edit";
+        else if ("LEAVE_POLICY_EDIT".equals(permissionKey)) resolvedKey = "leave:edit";
+        else if ("LEAVE_POLICY_DELETE".equals(permissionKey)) resolvedKey = "leave:delete";
+        else if ("LEAVE_POLICY_ASSIGN".equals(permissionKey)) resolvedKey = "leave:edit";
+        else if ("LEAVE_POLICY_APPROVE".equals(permissionKey)) resolvedKey = "leave:edit";
+        else if ("REQUISITION_CREATE".equals(permissionKey)) resolvedKey = "recruitment:create";
+        else if ("REQUISITION_VIEW".equals(permissionKey)) resolvedKey = "recruitment:view";
+        else if ("REQUISITION_EDIT".equals(permissionKey)) resolvedKey = "recruitment:edit";
+        else if ("REQUISITION_DELETE".equals(permissionKey)) resolvedKey = "recruitment:delete";
+        else if ("REQUISITION_APPROVE".equals(permissionKey)) resolvedKey = "recruitment:approve";
+
+        final String finalKey = resolvedKey;
+        String pageCode = "EMPLOYEE_DIRECTORY";
+        String actionCode = "VIEW";
+
+        if (finalKey.contains(":")) {
+            String[] parts = finalKey.split(":");
+            String part1 = parts[0].toUpperCase();
+            String part2 = parts[1].toUpperCase();
+
+            switch (part1) {
+                case "EMPLOYEE":
+                case "EMPLOYEE_DIRECTORY":
+                    pageCode = "EMPLOYEE_DIRECTORY";
+                    break;
+                case "LEAVE":
+                case "LEAVE_MANAGEMENT":
+                    pageCode = "LEAVE_MANAGEMENT";
+                    break;
+                case "APPROVAL":
+                case "APPROVALS":
+                case "MY_APPROVALS":
+                    pageCode = "MY_APPROVALS";
+                    break;
+                case "RECOGNITION":
+                case "RECOGNITION_PAGE":
+                    pageCode = "RECOGNITION_PAGE";
+                    break;
+                case "ORG":
+                case "ORG-DNA":
+                case "ORG_DNA":
+                case "ORG_DNA_PAGE":
+                    pageCode = "ORG_DNA_PAGE";
+                    break;
+                case "ONBOARDING":
+                case "ONBOARDING_PAGE":
+                    pageCode = "ONBOARDING_PAGE";
+                    break;
+                case "ANALYTICS":
+                case "ANALYTICS_PAGE":
+                    pageCode = "ANALYTICS_PAGE";
+                    break;
+                case "RECRUITMENT":
+                case "REQUISITION":
+                    pageCode = "RECRUITMENT";
+                    break;
+                default:
+                    pageCode = part1;
+                    break;
+            }
+
+            if ("UPDATE".equals(part2) || "EDIT".equals(part2) || "TRANSFER".equals(part2) || "PROMOTE".equals(part2)) {
+                actionCode = "EDIT";
+            } else if ("TERMINATE".equals(part2) || "DELETE".equals(part2)) {
+                actionCode = "DELETE";
+            } else {
+                actionCode = part2;
+            }
+        }
+
+        boolean hasIt = securityPlatformService.hasPermission(user.getId(), pageCode, actionCode);
         if (!hasIt) {
-            String userPerms = user.getRoles().stream()
-                    .flatMap(role -> role.getPermissions().stream())
-                    .map(Permission::getPermissionKey)
-                    .collect(Collectors.joining(", "));
-            log.warn("[RBAC] hasPermission denied: user={}, role={}, requiredPermission={}, userPermissions=[{}]",
+            log.warn("[RBAC] hasPermission denied: user={}, role={}, requiredPermission={}:{}({})",
                     username, user.getRoles().stream().map(Role::getCode).collect(Collectors.joining(",")),
-                    permissionKey, userPerms);
+                    pageCode, actionCode, permissionKey);
+            throw new org.springframework.security.access.AccessDeniedException("Missing permission: " + permissionKey);
         } else {
-            log.debug("[RBAC] hasPermission granted: user={}, permission={}", username, permissionKey);
+            log.debug("[RBAC] hasPermission granted: user={}, pageCode={}, actionCode={}", username, pageCode, actionCode);
         }
         return hasIt;
     }
@@ -119,6 +191,7 @@ public class RbacService {
                     auth.getName(),
                     auth.getAuthorities().stream().map(a -> a.getAuthority()).collect(Collectors.joining(",")),
                     userPriority, minimumRoleCode, minPriority);
+            throw new org.springframework.security.access.AccessDeniedException("Requires minimum role: " + minimumRoleCode);
         }
         return result;
     }

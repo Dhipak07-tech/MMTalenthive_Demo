@@ -12,7 +12,7 @@ export function MockScreen({ title, description, icon, children }: MockScreenPro
   const user = useAppSelector((state) => state.auth.user);
   
   return (
-    <div className="space-y-6 animate-fade-in p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 animate-fade-in p-6 w-full max-w-none">
       {/* Header Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
         {/* Glow effect */}
@@ -94,7 +94,7 @@ export function MockScreen({ title, description, icon, children }: MockScreenPro
                     <td className="py-3.5 text-slate-400">Just now</td>
                   </tr>
                   <tr className="text-slate-600 dark:text-slate-300">
-                    <td className="py-3.5 font-medium text-slate-900 dark:text-white">Reload Subscriptions</td>
+                    <td className="py-3.5 font-medium text-slate-900 dark:text-white">Reload Tenant Config</td>
                     <td className="py-3.5">system</td>
                     <td className="py-3.5">
                       <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 rounded-md text-xs font-medium">

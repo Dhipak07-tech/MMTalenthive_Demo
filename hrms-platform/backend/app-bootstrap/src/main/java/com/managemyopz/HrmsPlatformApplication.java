@@ -20,8 +20,10 @@ public class HrmsPlatformApplication {
                 "jdbc:mysql://localhost:3306/managemyopz_hr?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
                 "root", "Dhipak#2006#")) {
             try (java.sql.Statement stmt = conn.createStatement()) {
-                stmt.executeUpdate("DELETE FROM flyway_schema_history WHERE version = '15'");
-                System.out.println("Successfully removed failed Flyway migration version 15.");
+                int deletedRows = stmt.executeUpdate("DELETE FROM flyway_schema_history WHERE version = '15' AND success = 0");
+                if (deletedRows > 0) {
+                    System.out.println("Successfully removed failed Flyway migration version 15.");
+                }
             }
         } catch (Exception e) {
             System.out.println("No failed flyway history to clear: " + e.getMessage());

@@ -18,6 +18,6 @@ public class Band extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonBackReference("org-bands")
     private Organization organization;
 }

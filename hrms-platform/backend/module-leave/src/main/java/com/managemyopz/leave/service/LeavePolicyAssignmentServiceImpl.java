@@ -237,6 +237,7 @@ public class LeavePolicyAssignmentServiceImpl implements LeavePolicyAssignmentSe
             }
         }
         generateWallets(employeeId);
+        recalculateBalances(employeeId);
     }
 
     @Override

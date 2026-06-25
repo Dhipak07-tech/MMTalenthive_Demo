@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { platformApi } from './api';
 import authReducer from '../features/auth/authSlice';
+import employeesReducer from '../features/employees/employeesSlice';
 
 /**
  * Redux Store — Central state management for the HR Platform.
@@ -12,6 +13,7 @@ export const store = configureStore({
   reducer: {
     [platformApi.reducerPath]: platformApi.reducer,
     auth: authReducer,
+    employees: employeesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(platformApi.middleware),

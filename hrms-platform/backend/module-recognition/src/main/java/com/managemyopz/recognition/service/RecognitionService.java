@@ -25,6 +25,11 @@ public class RecognitionService {
     private final AwardProgramRepository awardProgramRepository;
     private final AwardNominationRepository awardNominationRepository;
 
+    private String resolveTenantId() {
+        String tenant = com.managemyopz.shared.entity.TenantContext.getCurrentTenant();
+        return tenant != null ? tenant : "default";
+    }
+
     // --- Core Values Engine ---
     public List<RecognitionValue> getValues() {
         return recognitionValueRepository.findByStatus("ACTIVE");
@@ -32,7 +37,7 @@ public class RecognitionService {
 
     public RecognitionValue createValue(RecognitionValue value) {
         if (value.getTenantId() == null) {
-            value.setTenantId("default");
+            value.setTenantId(resolveTenantId());
         }
         return recognitionValueRepository.save(value);
     }
@@ -44,14 +49,22 @@ public class RecognitionService {
 
     public RecognitionType createType(RecognitionType type) {
         if (type.getTenantId() == null) {
-            type.setTenantId("default");
+            type.setTenantId(resolveTenantId());
         }
         return recognitionTypeRepository.save(type);
     }
 
     // --- Points Economy Wallet ---
     public RecognitionPointsWallet getOrCreateWallet(UUID employeeId) {
-        return recognitionPointsWalletRepository.findByEmployeeId(employeeId)
+        return recognitionPointsWalletRepository.findByEmployeeIdNative(employeeId)
+                .map(wallet -> {
+                    String currentTenant = resolveTenantId();
+                    if (!currentTenant.equals(wallet.getTenantId())) {
+                        recognitionPointsWalletRepository.updateTenantIdNative(employeeId, currentTenant);
+                        wallet.setTenantId(currentTenant);
+                    }
+                    return wallet;
+                })
                 .orElseGet(() -> {
                     RecognitionPointsWallet wallet = RecognitionPointsWallet.builder()
                             .employeeId(employeeId)
@@ -61,7 +74,7 @@ public class RecognitionService {
                             .remaining(100)
                             .expired(0)
                             .build();
-                    wallet.setTenantId("default");
+                    wallet.setTenantId(resolveTenantId());
                     return recognitionPointsWalletRepository.save(wallet);
                 });
     }
@@ -120,7 +133,7 @@ public class RecognitionService {
                 .projectRef(projectRef)
                 .businessImpact(businessImpact)
                 .build();
-        recognition.setTenantId("default");
+        recognition.setTenantId(resolveTenantId());
         recognition.setCreatedBy(actor);
         Recognition saved = recognitionRepository.save(recognition);
 
@@ -133,7 +146,7 @@ public class RecognitionService {
                 .reason("Recognized " + receiverId + ": " + title)
                 .referenceId(saved.getId())
                 .build();
-        giverTx.setTenantId("default");
+        giverTx.setTenantId(resolveTenantId());
         recognitionPointsTransactionRepository.save(giverTx);
 
         RecognitionPointsTransaction receiverTx = RecognitionPointsTransaction.builder()
@@ -144,7 +157,7 @@ public class RecognitionService {
                 .reason("Recognized by " + giverId + ": " + title)
                 .referenceId(saved.getId())
                 .build();
-        receiverTx.setTenantId("default");
+        receiverTx.setTenantId(resolveTenantId());
         recognitionPointsTransactionRepository.save(receiverTx);
 
         return saved;
@@ -165,7 +178,7 @@ public class RecognitionService {
                 .employeeId(employeeId)
                 .commentText(text)
                 .build();
-        comment.setTenantId("default");
+        comment.setTenantId(resolveTenantId());
         comment.setCreatedBy(actor);
         return recognitionCommentRepository.save(comment);
     }
@@ -188,7 +201,7 @@ public class RecognitionService {
                     .employeeId(employeeId)
                     .reactionType(type)
                     .build();
-            reaction.setTenantId("default");
+            reaction.setTenantId(resolveTenantId());
             reaction.setCreatedBy(actor);
             recognitionReactionRepository.save(reaction);
         }
@@ -201,7 +214,7 @@ public class RecognitionService {
 
     public RewardCatalog createCatalogItem(RewardCatalog item) {
         if (item.getTenantId() == null) {
-            item.setTenantId("default");
+            item.setTenantId(resolveTenantId());
         }
         return rewardCatalogRepository.save(item);
     }
@@ -236,7 +249,7 @@ public class RecognitionService {
                 .status(RewardRedemption.RedemptionStatus.PENDING)
                 .deliveryDetails(deliveryDetails)
                 .build();
-        redemption.setTenantId("default");
+        redemption.setTenantId(resolveTenantId());
         redemption.setCreatedBy(actor);
         RewardRedemption saved = rewardRedemptionRepository.save(redemption);
 
@@ -249,7 +262,7 @@ public class RecognitionService {
                 .reason("Redeemed reward: " + reward.getName())
                 .referenceId(saved.getId())
                 .build();
-        tx.setTenantId("default");
+        tx.setTenantId(resolveTenantId());
         recognitionPointsTransactionRepository.save(tx);
 
         return saved;
@@ -280,7 +293,7 @@ public class RecognitionService {
 
     public AwardProgram createAwardProgram(AwardProgram program) {
         if (program.getTenantId() == null) {
-            program.setTenantId("default");
+            program.setTenantId(resolveTenantId());
         }
         return awardProgramRepository.save(program);
     }
@@ -294,7 +307,7 @@ public class RecognitionService {
                 .evidenceUrl(evidenceUrl)
                 .status(AwardNomination.NominationStatus.PENDING)
                 .build();
-        nomination.setTenantId("default");
+        nomination.setTenantId(resolveTenantId());
         nomination.setCreatedBy(actor);
         return awardNominationRepository.save(nomination);
     }
@@ -360,5 +373,66 @@ public class RecognitionService {
         stats.put("totalPointsRedeemed", redemptions.stream().mapToInt(RewardRedemption::getPointsUsed).sum());
 
         return stats;
+    }
+
+    public Map<String, Object> generateHealthReport(List<UUID> employeeIds) {
+        Map<String, Object> report = new HashMap<>();
+        report.put("dbConnectivity", "Healthy");
+        
+        int coreValues = getValues().size();
+        int recognitionTypes = getTypes().size();
+        int rewardsCount = getCatalog().size();
+        int programsCount = getAwardPrograms().size();
+        
+        report.put("coreValuesCount", coreValues);
+        report.put("recognitionTypesCount", recognitionTypes);
+        report.put("rewardsCatalogCount", rewardsCount);
+        report.put("awardProgramsCount", programsCount);
+        
+        List<String> gaps = new ArrayList<>();
+        if (coreValues < 8) {
+            gaps.add("Core values count is " + coreValues + " (expected 8: Teamwork, Innovation, Customer First, Ownership, Integrity, Excellence, Leadership, Collaboration)");
+        }
+        if (recognitionTypes < 6) {
+            gaps.add("Recognition types count is " + recognitionTypes + " (expected 6: Peer Recognition, Manager Recognition, Spot Award, Achievement Award, Innovation Award, Leadership Award)");
+        }
+        if (rewardsCount == 0) {
+            gaps.add("Rewards catalog is empty. Employees cannot redeem points.");
+        }
+        if (programsCount == 0) {
+            gaps.add("No active Award Programs initialized.");
+        }
+        report.put("configurationGaps", gaps);
+        
+        List<UUID> missingWallets = new ArrayList<>();
+        if (employeeIds != null) {
+            for (UUID empId : employeeIds) {
+                if (recognitionPointsWalletRepository.findByEmployeeId(empId).isEmpty()) {
+                    missingWallets.add(empId);
+                }
+            }
+        }
+        report.put("totalEmployeesChecked", employeeIds != null ? employeeIds.size() : 0);
+        report.put("employeesWithoutWallet", missingWallets);
+        report.put("dataIntegrityStatus", missingWallets.isEmpty() ? "Healthy" : "Issues Found");
+        
+        return report;
+    }
+
+    @Transactional
+    public Map<String, Object> provisionMissingWallets(List<UUID> employeeIds) {
+        int provisioned = 0;
+        if (employeeIds != null) {
+            for (UUID empId : employeeIds) {
+                if (recognitionPointsWalletRepository.findByEmployeeId(empId).isEmpty()) {
+                    getOrCreateWallet(empId);
+                    provisioned++;
+                }
+            }
+        }
+        Map<String, Object> res = new HashMap<>();
+        res.put("provisionedCount", provisioned);
+        res.put("status", "Success");
+        return res;
     }
 }

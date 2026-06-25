@@ -31,6 +31,8 @@ import {
   useGetLeaderboardQuery,
   useGetAnalyticsQuery,
   useGetAiInsightsQuery,
+  useGetHealthReportMutation,
+  useProvisionMissingWalletsMutation,
   type RecognitionValue,
   type RecognitionType,
   type Recognition,
@@ -43,15 +45,15 @@ export function RecognitionScreen() {
   const userRole = useAppSelector((state) => state.auth.role);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'feed' | 'give' | 'my' | 'awards' | 'leaderboard' | 'marketplace' | 'analytics' | 'admin' | 'audit'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'give' | 'my' | 'awards' | 'leaderboard' | 'marketplace' | 'analytics' | 'admin' | 'audit' | 'health'>('feed');
 
   // Queries
-  const { data: employees = [] } = useGetEmployeesQuery();
+  const { data: employees = [] } = useGetEmployeesQuery(undefined);
   const currentEmployee = employees.find(e => e.workEmail?.toLowerCase() === currentUser?.email?.toLowerCase()) || employees[0];
   const employeeId = currentEmployee?.id || '';
 
-  const { data: values = [], refetch: refetchValues } = useGetValuesQuery();
-  const { data: types = [], refetch: refetchTypes } = useGetTypesQuery();
+  const { data: values = [], refetch: refetchValues, isLoading: isLoadingValues } = useGetValuesQuery();
+  const { data: types = [], refetch: refetchTypes, isLoading: isLoadingTypes } = useGetTypesQuery();
   const { data: wallet, refetch: refetchWallet } = useGetWalletQuery(employeeId, { skip: !employeeId });
   const { data: feed = [], refetch: refetchFeed } = useGetFeedQuery();
   const { data: catalog = [], refetch: refetchCatalog } = useGetCatalogQuery();
@@ -76,9 +78,55 @@ export function RecognitionScreen() {
   const [approveNomination] = useApproveNominationMutation();
   const [updateRedemptionStatus] = useUpdateRedemptionStatusMutation();
 
+  // Health report & Provisioning hooks
+  const [getHealthReport, { isLoading: isHealthLoading }] = useGetHealthReportMutation();
+  const [provisionMissingWallets, { isLoading: isProvisioning }] = useProvisionMissingWalletsMutation();
+
   // Local state
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [healthReport, setHealthReport] = useState<any>(null);
+
+  // Configuration check helper
+  const isConfigMissing = !isLoadingValues && !isLoadingTypes && (values.length === 0 || types.length === 0);
+
+  const handleFetchHealthReport = async () => {
+    try {
+      const ids = employees.map(e => e.id).filter((id): id is string => !!id);
+      const res = await getHealthReport(ids).unwrap();
+      setHealthReport(res);
+    } catch (e) {
+      console.error("Failed to fetch health report", e);
+    }
+  };
+
+  const handleProvisionWallets = async () => {
+    try {
+      const ids = employees.map(e => e.id).filter((id): id is string => !!id);
+      await provisionMissingWallets(ids).unwrap();
+      setSuccessMessage("Missing wallets provisioned successfully!");
+      handleFetchHealthReport();
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (e) {
+      console.error("Failed to provision wallets", e);
+      setErrorMessage("Failed to provision wallets.");
+      setTimeout(() => setErrorMessage(''), 4000);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'health' && employees.length > 0) {
+      handleFetchHealthReport();
+    }
+  }, [activeTab, employees]);
+
+  useEffect(() => {
+    if (isConfigMissing) {
+      setErrorMessage("No recognition configuration found. Contact administrator.");
+    } else if (errorMessage === "No recognition configuration found. Contact administrator.") {
+      setErrorMessage("");
+    }
+  }, [isConfigMissing]);
   
   // Give Rec State
   const [giveRecForm, setGiveRecForm] = useState({
@@ -278,11 +326,25 @@ export function RecognitionScreen() {
           <span className="text-sm font-semibold">{successMessage}</span>
         </div>
       )}
-      {errorMessage && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/20 text-rose-800 dark:text-rose-400 rounded-xl border border-rose-100 dark:border-rose-900/30 flex items-center gap-2">
-          <Shield className="w-5 h-5 shrink-0" />
-          <span className="text-sm font-semibold">{errorMessage}</span>
+      {isConfigMissing ? (
+        <div className="p-5 bg-amber-50 dark:bg-amber-950/20 text-amber-950 dark:text-amber-400 rounded-2xl border border-amber-250/30 dark:border-amber-900/30 flex items-start gap-4 shadow-sm animate-pulse-slow">
+          <div className="p-3 bg-amber-100 dark:bg-amber-900/40 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+            <Settings className="w-6 h-6 animate-spin-slow" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-extrabold uppercase tracking-wide">System Configuration Gaps</h3>
+            <p className="text-xs leading-relaxed text-amber-800/80 dark:text-amber-450">
+              No recognition configuration found. Contact administrator.
+            </p>
+          </div>
         </div>
+      ) : (
+        errorMessage && (
+          <div className="p-4 bg-rose-50 dark:bg-rose-950/20 text-rose-800 dark:text-rose-400 rounded-xl border border-rose-100 dark:border-rose-900/30 flex items-center gap-2">
+            <Shield className="w-5 h-5 shrink-0" />
+            <span className="text-sm font-semibold">{errorMessage}</span>
+          </div>
+        )
       )}
 
       {/* Navigation Tabs */}
@@ -295,6 +357,7 @@ export function RecognitionScreen() {
           { id: 'leaderboard', label: 'Leaderboards', icon: Target },
           { id: 'marketplace', label: 'Rewards Marketplace', icon: ShoppingBag },
           { id: 'analytics', label: 'Culture Analytics', icon: BarChart3 },
+          { id: 'health', label: 'Health Report', icon: Shield, adminOnly: true },
           { id: 'admin', label: 'Settings & Budgets', icon: Settings, adminOnly: true },
           { id: 'audit', label: 'Compliance Audit', icon: ClipboardList, adminOnly: true }
         ].map(tab => {
@@ -1227,6 +1290,207 @@ export function RecognitionScreen() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {/* ──────────────────────────────────────────────────────── */}
+      {/* 10. HEALTH REPORT DIAGNOSTICS */}
+      {/* ──────────────────────────────────────────────────────── */}
+      {activeTab === 'health' && isAdmin && (
+        <div className="space-y-6">
+          {/* Main Diagnostic Header card */}
+          <div className="bg-white dark:bg-surface-800 rounded-2xl p-6 border border-surface-200 dark:border-surface-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="space-y-1">
+                <h3 className="text-base font-extrabold text-surface-900 dark:text-white flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-indigo-650 animate-pulse" /> Recognition Health & Alignment Diagnostics
+                </h3>
+                <p className="text-xs text-surface-450">
+                  Real-time status check of tenant configuration, API routing, and point wallet provisioning coverage.
+                </p>
+              </div>
+              <button
+                onClick={handleFetchHealthReport}
+                disabled={isHealthLoading}
+                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-750 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+              >
+                {isHealthLoading ? 'Scanning...' : 'Run Diagnostics'}
+              </button>
+            </div>
+
+            {/* Health status summary stats */}
+            {healthReport && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <div className="bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-2xl p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                    healthReport.dbConnectivity === 'Healthy' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40'
+                  }`}>
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-surface-450 uppercase font-extrabold tracking-wide">DB Status</p>
+                    <p className="text-xs font-extrabold text-surface-900 dark:text-white">{healthReport.dbConnectivity}</p>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-2xl p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                    healthReport.configurationGaps.length === 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                  }`}>
+                    <Settings className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-surface-450 uppercase font-extrabold tracking-wide">Config Alignments</p>
+                    <p className="text-xs font-extrabold text-surface-900 dark:text-white">
+                      {healthReport.configurationGaps.length === 0 ? '100% Configured' : `${healthReport.configurationGaps.length} Gaps Detected`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-50/50 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-2xl p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                    healthReport.employeesWithoutWallet.length === 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                  }`}>
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-surface-450 uppercase font-extrabold tracking-wide">Wallet Coverage</p>
+                    <p className="text-xs font-extrabold text-surface-900 dark:text-white">
+                      {healthReport.employeesWithoutWallet.length === 0 
+                        ? '105% Provisioned' 
+                        : `${healthReport.totalEmployeesChecked - healthReport.employeesWithoutWallet.length}/${healthReport.totalEmployeesChecked} Active`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {healthReport && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Configuration alignment checks */}
+              <div className="bg-white dark:bg-surface-800 rounded-2xl p-6 border border-surface-200 dark:border-surface-800 shadow-sm space-y-4">
+                <h4 className="text-sm font-extrabold text-surface-900 dark:text-white flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-indigo-600" /> Platform Configuration Alignment
+                </h4>
+                
+                <div className="space-y-3">
+                  {/* Values check */}
+                  <div className="flex items-center justify-between p-3 bg-surface-50 dark:bg-surface-900/50 border border-surface-100 dark:border-surface-750/30 rounded-xl">
+                    <div>
+                      <p className="text-xs font-bold text-surface-800 dark:text-white">Core Values engine</p>
+                      <p className="text-[10px] text-surface-450 mt-0.5">{healthReport.coreValuesCount} loaded values</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      healthReport.coreValuesCount >= 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {healthReport.coreValuesCount >= 8 ? 'Aligned' : 'Missing Seeding'}
+                    </span>
+                  </div>
+
+                  {/* Types check */}
+                  <div className="flex items-center justify-between p-3 bg-surface-50 dark:bg-surface-900/50 border border-surface-100 dark:border-surface-750/30 rounded-xl">
+                    <div>
+                      <p className="text-xs font-bold text-surface-800 dark:text-white">Recognition Types engine</p>
+                      <p className="text-[10px] text-surface-450 mt-0.5">{healthReport.recognitionTypesCount} loaded types</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      healthReport.recognitionTypesCount >= 6 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {healthReport.recognitionTypesCount >= 6 ? 'Aligned' : 'Missing Seeding'}
+                    </span>
+                  </div>
+
+                  {/* Rewards Catalog check */}
+                  <div className="flex items-center justify-between p-3 bg-surface-50 dark:bg-surface-900/50 border border-surface-100 dark:border-surface-750/30 rounded-xl">
+                    <div>
+                      <p className="text-xs font-bold text-surface-800 dark:text-white">Marketplace Catalog</p>
+                      <p className="text-[10px] text-surface-450 mt-0.5">{healthReport.rewardsCatalogCount} active items</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      healthReport.rewardsCatalogCount > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {healthReport.rewardsCatalogCount > 0 ? 'Healthy' : 'Empty Catalog'}
+                    </span>
+                  </div>
+                </div>
+
+                {healthReport.configurationGaps.length > 0 ? (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400 rounded-2xl border border-amber-100 dark:border-amber-900/30 space-y-2">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wide">Action Items</p>
+                    <ul className="text-xs list-disc pl-4 space-y-1 leading-relaxed">
+                      {healthReport.configurationGaps.map((gap: string, i: number) => (
+                        <li key={i}>{gap}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 shrink-0" />
+                    <span className="text-xs font-semibold">All core setups are fully aligned with HR policies.</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Data Integrity & Wallet Coverage */}
+              <div className="bg-white dark:bg-surface-800 rounded-2xl p-6 border border-surface-200 dark:border-surface-800 shadow-sm space-y-4">
+                <h4 className="text-sm font-extrabold text-surface-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-600" /> Wallet Coverage & Integrity
+                </h4>
+
+                <div className="space-y-3">
+                  <div className="p-4 bg-surface-50 dark:bg-surface-900/50 rounded-xl border border-surface-100 dark:border-surface-750/30 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-surface-800 dark:text-white">Active Twin Employees</p>
+                      <p className="text-[10px] text-surface-450 mt-0.5">Total checked profiles</p>
+                    </div>
+                    <span className="text-base font-black text-indigo-600 dark:text-indigo-400">{healthReport.totalEmployeesChecked}</span>
+                  </div>
+
+                  <div className="p-4 bg-surface-50 dark:bg-surface-900/50 rounded-xl border border-surface-100 dark:border-surface-750/30 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-surface-800 dark:text-white">Missing Wallet Allocation</p>
+                      <p className="text-[10px] text-surface-450 mt-0.5">Employees without point wallets</p>
+                    </div>
+                    <span className={`text-base font-black ${
+                      healthReport.employeesWithoutWallet.length > 0 ? 'text-amber-500' : 'text-emerald-500'
+                    }`}>{healthReport.employeesWithoutWallet.length}</span>
+                  </div>
+                </div>
+
+                {healthReport.employeesWithoutWallet.length > 0 ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="p-4 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-250/30 rounded-xl space-y-2">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber-700">Affected Employees</p>
+                      <div className="max-h-32 overflow-y-auto space-y-1.5 scrollbar-none">
+                        {healthReport.employeesWithoutWallet.map((empId: string) => {
+                          const emp = employees.find(e => e.id === empId);
+                          return (
+                            <div key={empId} className="text-xs font-semibold flex items-center justify-between text-surface-700 dark:text-surface-300">
+                              <span>{emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown Employee'}</span>
+                              <span className="text-[10px] text-surface-400 font-normal font-mono">{empId.substring(0, 8)}...</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleProvisionWallets}
+                      disabled={isProvisioning}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                    >
+                      {isProvisioning ? 'Provisioning...' : 'Provision Missing Wallets'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-400 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 shrink-0" />
+                    <span className="text-xs font-semibold">100% wallet coverage achieved. All twins have active wallets!</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

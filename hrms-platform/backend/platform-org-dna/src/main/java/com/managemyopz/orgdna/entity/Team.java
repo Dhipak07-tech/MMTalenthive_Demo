@@ -28,6 +28,6 @@ public class Team extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonBackReference("dept-teams")
     private Department department;
 }

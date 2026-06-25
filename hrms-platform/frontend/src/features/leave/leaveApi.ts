@@ -77,6 +77,8 @@ export interface LeavePolicy {
   effectiveFrom: string;
   effectiveTo?: string;
   active: boolean;
+  status?: string;
+  organizationScope?: string;
 }
 
 export interface LeavePolicyRule {
@@ -88,6 +90,12 @@ export interface LeavePolicyRule {
   carryForwardLimit: number;
   encashmentAllowed: boolean;
   negativeBalanceAllowed: boolean;
+  noticePeriod?: number;
+  minServiceDays?: number;
+  attachmentRequired?: boolean;
+  halfDayAllowed?: boolean;
+  genderEligibility?: string;
+  employmentTypeEligibility?: string;
 }
 
 export interface LeavePolicyAssignment {
@@ -221,6 +229,52 @@ export const leaveApi = platformApi.injectEndpoints({
       transformResponse: (response: any) => response.data,
       invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
     }),
+    updateLeavePolicy: builder.mutation<LeavePolicy, { id: string; body: Partial<LeavePolicy> }>({
+      query: ({ id, body }) => ({
+        url: `/v1/leave-policies/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
+    }),
+    cloneLeavePolicy: builder.mutation<LeavePolicy, { id: string; newName: string; newCode: string }>({
+      query: ({ id, newName, newCode }) => ({
+        url: `/v1/leave-policies/${id}/clone`,
+        method: 'POST',
+        params: { newName, newCode },
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
+    }),
+    archiveLeavePolicy: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/leave-policies/${id}/archive`,
+        method: 'POST',
+      }),
+      invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
+    }),
+    activateLeavePolicy: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/leave-policies/${id}/activate`,
+        method: 'POST',
+      }),
+      invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
+    }),
+    deactivateLeavePolicy: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/leave-policies/${id}/deactivate`,
+        method: 'POST',
+      }),
+      invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
+    }),
+    deleteLeavePolicy: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/v1/leave-policies/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [{ type: 'LeaveRequest', id: 'POLICIES' }],
+    }),
     getPolicyRules: builder.query<LeavePolicyRule[], string>({
       query: (policyId) => `/v1/leave-policies/${policyId}/rules`,
       transformResponse: (response: any) => response.data || [],
@@ -233,7 +287,32 @@ export const leaveApi = platformApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: any) => response.data,
-      invalidatesTags: (result, error, { policyId }) => [{ type: 'LeaveRequest', id: `RULES_${policyId}` }],
+      invalidatesTags: (result, error, { policyId }) => [
+        { type: 'LeaveRequest', id: `RULES_${policyId}` },
+        { type: 'LeaveRequest', id: 'POLICIES' }
+      ],
+    }),
+    updatePolicyRule: builder.mutation<LeavePolicyRule, { ruleId: string; body: Partial<LeavePolicyRule> }>({
+      query: ({ ruleId, body }) => ({
+        url: `/v1/leave-policies/rules/${ruleId}`,
+        method: 'PUT',
+        body,
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: (result, error, { body }) => [
+        { type: 'LeaveRequest', id: `RULES_${body.policyId}` },
+        { type: 'LeaveRequest', id: 'POLICIES' }
+      ],
+    }),
+    deletePolicyRule: builder.mutation<void, { ruleId: string; policyId: string }>({
+      query: ({ ruleId }) => ({
+        url: `/v1/leave-policies/rules/${ruleId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { policyId }) => [
+        { type: 'LeaveRequest', id: `RULES_${policyId}` },
+        { type: 'LeaveRequest', id: 'POLICIES' }
+      ],
     }),
     getPolicyAssignments: builder.query<LeavePolicyAssignment[], void>({
       query: () => '/v1/leave-policies/assignments',
@@ -247,7 +326,39 @@ export const leaveApi = platformApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: any) => response.data,
-      invalidatesTags: [{ type: 'LeaveRequest', id: 'ASSIGNMENTS' }],
+      invalidatesTags: [
+        { type: 'LeaveRequest', id: 'ASSIGNMENTS' },
+        { type: 'LeaveRequest', id: 'POLICIES' }
+      ],
+    }),
+    deletePolicyAssignment: builder.mutation<void, { assignmentId: string; policyId: string }>({
+      query: ({ assignmentId }) => ({
+        url: `/v1/leave-policies/assignments/${assignmentId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { policyId }) => [
+        { type: 'LeaveRequest', id: 'ASSIGNMENTS' },
+        { type: 'LeaveRequest', id: 'POLICIES' }
+      ],
+    }),
+    getPolicyAssignmentsForId: builder.query<LeavePolicyAssignment[], string>({
+      query: (id) => `/v1/leave-policies/${id}/assignments`,
+      transformResponse: (response: any) => response.data || [],
+    }),
+    getPolicyVersions: builder.query<any[], string>({
+      query: (id) => `/v1/leave-policies/${id}/versions`,
+      transformResponse: (response: any) => response.data || [],
+    }),
+    getPolicyAudits: builder.query<any[], string>({
+      query: (id) => `/v1/leave-policies/${id}/audits`,
+      transformResponse: (response: any) => response.data || [],
+    }),
+    getPolicyImpact: builder.query<any, { id: string; newAllocatedDays: number; leaveTypeId: string }>({
+      query: ({ id, newAllocatedDays, leaveTypeId }) => ({
+        url: `/v1/leave-policies/${id}/impact`,
+        params: { newAllocatedDays, leaveTypeId },
+      }),
+      transformResponse: (response: any) => response.data,
     }),
     recalculateBalances: builder.mutation<void, { employeeId: string; action: 'recalculate' | 'regenerate' }>({
       query: ({ employeeId, action }) => ({
@@ -354,10 +465,24 @@ export const {
   useCreateCalendarDayMutation,
   useGetLeavePoliciesQuery,
   useCreateLeavePolicyMutation,
+  useUpdateLeavePolicyMutation,
+  useCloneLeavePolicyMutation,
+  useArchiveLeavePolicyMutation,
+  useActivateLeavePolicyMutation,
+  useDeactivateLeavePolicyMutation,
+  useDeleteLeavePolicyMutation,
   useGetPolicyRulesQuery,
   useCreatePolicyRuleMutation,
+  useUpdatePolicyRuleMutation,
+  useDeletePolicyRuleMutation,
   useGetPolicyAssignmentsQuery,
   useCreatePolicyAssignmentMutation,
+  useDeletePolicyAssignmentMutation,
+  useGetPolicyAssignmentsForIdQuery,
+  useGetPolicyVersionsQuery,
+  useGetPolicyAuditsQuery,
+  useLazyGetPolicyImpactQuery,
+  useGetPolicyImpactQuery,
   useRecalculateBalancesMutation,
   useAdjustBalanceMutation,
   useDeleteLeaveTypeMutation,

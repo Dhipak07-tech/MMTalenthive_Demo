@@ -5,7 +5,7 @@ export function MyProfileScreen() {
   const user = useAppSelector((state) => state.auth.user);
 
   return (
-    <div className="space-y-6 animate-fade-in p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 animate-fade-in p-6 w-full max-w-none">
       {/* Profile Banner */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         {/* Glow */}

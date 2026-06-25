@@ -30,10 +30,10 @@ public class BusinessUnit extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonBackReference("org-bus")
     private Organization organization;
 
     @OneToMany(mappedBy = "businessUnit", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonManagedReference("bu-divs")
     private List<Division> divisions = new ArrayList<>();
 }

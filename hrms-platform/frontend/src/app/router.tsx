@@ -5,7 +5,7 @@ import { EmployeeDirectory } from '../features/employees/EmployeeDirectory';
 import { OrgDnaScreen } from '../features/org-dna/OrgDnaScreen';
 import { LeaveScreen } from '../features/leave/LeaveScreen';
 import { RecognitionScreen } from '../features/recognition/RecognitionScreen';
-import { SecurityScreen } from '../features/security/SecurityScreen';
+import { RecruitmentScreen } from '../features/recruitment/RecruitmentScreen';
 import { Login } from '../features/auth/Login';
 import { ActivateAccount } from '../features/auth/ActivateAccount';
 import { ForgotPassword } from '../features/auth/ForgotPassword';
@@ -18,7 +18,7 @@ import { OnboardingDashboard } from '../features/employees/OnboardingDashboard';
 import { EmployeeOnboardingWizard } from '../features/employees/EmployeeOnboardingWizard';
 import { MockScreen } from '../features/dashboard/MockScreen';
 import { ApprovalsScreen } from '../features/workflow/ApprovalsScreen';
-import { CreditCard, ShieldAlert, FileText, Settings, HelpCircle, GitPullRequest } from 'lucide-react';
+import { ShieldAlert, FileText, Settings, HelpCircle, GitPullRequest } from 'lucide-react';
 
 /**
  * Router — Feature-sliced routing for the HR Platform.
@@ -118,10 +118,10 @@ export const router = createBrowserRouter([
         element: <RecognitionScreen />, // accessible by all employees
       },
       {
-        path: 'security',
+        path: 'recruitment',
         element: (
-          <RoleGuard allowedRoles={['ROLE_ULTRA_SUPER_ADMIN', 'ROLE_SUPER_ADMIN']} fallback={<Navigate to="/403" replace />}>
-            <SecurityScreen />
+          <RoleGuard allowedRoles={['ROLE_ULTRA_SUPER_ADMIN', 'ROLE_SUPER_ADMIN', 'ROLE_ADMIN']} fallback={<Navigate to="/403" replace />}>
+            <RecruitmentScreen />
           </RoleGuard>
         ),
       },
@@ -138,14 +138,6 @@ export const router = createBrowserRouter([
         element: <MyProfileScreen />,
       },
       // Mock routes for sidebar navigation
-      {
-        path: 'subscriptions',
-        element: (
-          <RoleGuard allowedRoles={['ROLE_ULTRA_SUPER_ADMIN']} fallback={<Navigate to="/403" replace />}>
-            <MockScreen title="Client Subscriptions" description="Manage global tenant subscriptions and invoicing tiers." icon={<CreditCard size={24} />} />
-          </RoleGuard>
-        ),
-      },
       {
         path: 'rbac',
         element: (

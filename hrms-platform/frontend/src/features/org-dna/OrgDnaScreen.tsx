@@ -1,10 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { 
   Building, Layers, GitFork, Network, MapPin, Award, 
-  ShieldAlert, DollarSign, Calendar, CreditCard, GitBranch,
+  ShieldAlert, IndianRupee, Calendar, CreditCard, GitBranch,
   Plus, Edit, Trash2, Search, ZoomIn, ZoomOut, RotateCcw,
-  Check, X, Info, Sparkles, Users, FolderTree, ArrowRight, Move, RefreshCw, History
+  Check, X, Info, Sparkles, Users, FolderTree, ArrowRight, Move, RefreshCw, History,
+  TrendingUp, UserCheck, Briefcase, Maximize2, Activity, FileText, ChevronRight, ChevronDown, Download, AlertTriangle
 } from 'lucide-react';
+import { DatePicker } from '../employees/DatePicker';
 import { 
   useGetOrganizationsQuery,
   useCreateOrganizationMutation,
@@ -85,7 +87,12 @@ import {
   useAutoRepairDnaMutation,
   useBulkRepairDnaMutation,
 } from './orgDnaApi';
-import { useGetEmployeesQuery } from '../employees/employeesApi';
+import { 
+  useGetEmployeesQuery,
+  useTransferEmployeeMutation,
+  usePromoteEmployeeMutation,
+  useChangeManagerMutation 
+} from '../employees/employeesApi';
 
 type TabId = 
   | 'organization'
@@ -109,6 +116,164 @@ export function OrgDnaScreen() {
   const [zoomScale, setZoomScale] = useState(1);
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   const [showArchived, setShowArchived] = useState(false);
+
+  // Employee Transfer/Promote/Manager mutations
+  const [transferEmployee] = useTransferEmployeeMutation();
+  const [promoteEmployee] = usePromoteEmployeeMutation();
+  const [changeManager] = useChangeManagerMutation();
+
+  // Modals for employee transitions in Reporting Hierarchy
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferTargetEmp, setTransferTargetEmp] = useState<any>(null);
+  const [transferNewDeptId, setTransferNewDeptId] = useState('');
+  const [transferNewLocId, setTransferNewLocId] = useState('');
+
+  const [showChangeManagerModal, setShowChangeManagerModal] = useState(false);
+  const [changeManagerTargetEmp, setChangeManagerTargetEmp] = useState<any>(null);
+  const [changeManagerNewManagerId, setChangeManagerNewManagerId] = useState('');
+
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [promoteTargetEmp, setPromoteTargetEmp] = useState<any>(null);
+  const [promoteNewDesignationId, setPromoteNewDesignationId] = useState('');
+  const [promoteNewGradeId, setPromoteNewGradeId] = useState('');
+
+  // Hierarchy Sub-tabs
+  const [hierarchySubTab, setHierarchySubTab] = useState<'org_structure' | 'reporting' | 'approval' | 'matrix' | 'functional' | 'analytics'>('org_structure');
+  
+  // Selected Workflow for Approval Hierarchy
+  const [selectedWorkflowType, setSelectedWorkflowType] = useState('LEAVE');
+
+  // Heat map metric selection for Analytics tab
+  const [heatMapMetric, setHeatMapMetric] = useState<'attrition' | 'vacancy' | 'workload' | 'budget'>('workload');
+
+  // Selected Employee for Detail view
+  const [selectedEmployeeDetail, setSelectedEmployeeDetail] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // Full Screen canvas toggle
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  // Handlers for employee transitions
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferTargetEmp) return;
+    try {
+      await transferEmployee({
+        id: transferTargetEmp.id,
+        departmentId: transferNewDeptId,
+        locationId: transferNewLocId
+      }).unwrap();
+      alert('Employee transferred successfully!');
+      setShowTransferModal(false);
+    } catch (err: any) {
+      console.error('Transfer failed', err);
+      alert('Error transferring employee: ' + (err?.data?.message || 'Unknown error'));
+    }
+  };
+
+  const handleChangeManagerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changeManagerTargetEmp) return;
+    if (changeManagerTargetEmp.id === changeManagerNewManagerId) {
+      alert('An employee cannot report to themselves.');
+      return;
+    }
+    try {
+      await changeManager({
+        id: changeManagerTargetEmp.id,
+        managerId: changeManagerNewManagerId
+      }).unwrap();
+      alert('Manager updated successfully!');
+      setShowChangeManagerModal(false);
+    } catch (err: any) {
+      console.error('Change manager failed', err);
+      alert('Error: ' + (err?.data?.message || 'Unknown error'));
+    }
+  };
+
+  const handlePromoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!promoteTargetEmp) return;
+    try {
+      await promoteEmployee({
+        id: promoteTargetEmp.id,
+        designationId: promoteNewDesignationId,
+        gradeId: promoteNewGradeId
+      }).unwrap();
+      alert('Employee promoted successfully!');
+      setShowPromoteModal(false);
+    } catch (err: any) {
+      console.error('Promotion failed', err);
+      alert('Error promoting employee: ' + (err?.data?.message || 'Unknown error'));
+    }
+  };
+
+
+  // Export to CSV helper
+  const handleCSVExport = (type: string) => {
+    let headers = '';
+    let rows: string[][] = [];
+    let filename = '';
+
+    if (type === 'org_structure') {
+      headers = 'Level,Node Name,Code,Headcount,Manager,Status\n';
+      filename = 'organization_structure_report.csv';
+      
+      businessUnits?.forEach(bu => {
+        const buHead = getEmployeeNameById(bu.headEmployeeId || '');
+        const buHc = employees?.filter(e => e.businessUnitId === bu.id).length || 0;
+        rows.push(['Business Unit', bu.name, bu.code, buHc.toString(), buHead, bu.active ? 'Active' : 'Inactive']);
+        
+        allDivisions.filter(d => d.buId === bu.id).forEach(div => {
+          const divHead = getEmployeeNameById(div.headEmployeeId || '');
+          const divHc = employees?.filter(e => e.divisionId === div.id).length || 0;
+          rows.push(['Division', div.name, div.code, divHc.toString(), divHead, div.active ? 'Active' : 'Inactive']);
+          
+          allDepartments.filter(dept => dept.divisionId === div.id).forEach(dept => {
+            const deptHead = getEmployeeNameById(dept.headEmployeeId || '');
+            const deptHc = employees?.filter(e => e.departmentId === dept.id).length || 0;
+            rows.push(['Department', dept.name, dept.code, deptHc.toString(), deptHead, dept.active ? 'Active' : 'Inactive']);
+          });
+        });
+      });
+    } else if (type === 'reporting') {
+      headers = 'Employee Code,Display Name,Designation,Department,Location,Manager,Employment Status\n';
+      filename = 'reporting_hierarchy_report.csv';
+      employees?.forEach(e => {
+        const mName = e.managerId ? getEmployeeNameById(e.managerId) : 'N/A';
+        const dName = designations?.find(des => des.id === e.designationId)?.name || 'N/A';
+        const deptName = getDeptNameById(e.departmentId || '');
+        const locName = locations?.find(l => l.id === e.locationId)?.name || 'N/A';
+        rows.push([e.employeeCode, e.displayName, dName, deptName, locName, mName, e.employmentStatus]);
+      });
+    } else if (type === 'analytics') {
+      headers = 'Department,Headcount,Estimated Cost,Span of Control Warning,Open Vacancies\n';
+      filename = 'workforce_analytics_report.csv';
+      allDepartments.forEach(dept => {
+        const hc = employees?.filter(e => e.departmentId === dept.id).length || 0;
+        const managers = employees?.filter(e => e.departmentId === dept.id && employees.some(sub => sub.managerId === e.id)).length || 0;
+        const avgSpan = managers > 0 ? (hc - managers) / managers : hc;
+        rows.push([
+          dept.name,
+          hc.toString(),
+          (hc * 75000).toLocaleString() + ' INR',
+          avgSpan > 12 ? 'YES (Overloaded)' : 'NO',
+          '2'
+        ]);
+      });
+    }
+
+    const csvContent = headers + rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // CRUD Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -188,6 +353,42 @@ export function OrgDnaScreen() {
     { skip: !activeOrgId }
   );
   const { data: employees } = useGetEmployeesQuery();
+
+  // Hierarchy validation helper
+  const hierarchyValidationWarnings = useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+    const warnings: string[] = [];
+
+    // Check self reporting & circular reporting
+    const detectCycle = (empId: string, currentPath: Set<string>): boolean => {
+      if (currentPath.has(empId)) return true;
+      const emp = employees.find(e => e.id === empId);
+      if (!emp || !emp.managerId || emp.managerId === empId) return false;
+      currentPath.add(empId);
+      const hasCycle = detectCycle(emp.managerId, currentPath);
+      currentPath.delete(empId);
+      return hasCycle;
+    };
+
+    employees.forEach(emp => {
+      if (emp.managerId === emp.id) {
+        warnings.push(`Self Reporting: ${emp.displayName} (${emp.employeeCode}) reports to themselves.`);
+      } else if (emp.managerId) {
+        const managerExists = employees.some(e => e.id === emp.managerId);
+        if (!managerExists) {
+          warnings.push(`Broken Reporting Line: ${emp.displayName} (${emp.employeeCode}) reports to an invalid or deleted manager.`);
+        } else if (emp.id) {
+          const cycle = detectCycle(emp.id, new Set<string>());
+          if (cycle) {
+            warnings.push(`Circular Reporting Cycle detected involving: ${emp.displayName} (${emp.employeeCode}).`);
+          }
+        }
+      }
+    });
+
+    return warnings;
+  }, [employees]);
+
 
   // Approval Matrix form states
   const [matrixDeptId, setMatrixDeptId] = useState('');
@@ -873,7 +1074,7 @@ export function OrgDnaScreen() {
     locations: MapPin,
     designations: Award,
     grades: ShieldAlert,
-    bands: DollarSign,
+    bands: IndianRupee,
     employment_types: Calendar,
     cost_centers: CreditCard,
     approval_matrix: FolderTree,
@@ -919,6 +1120,141 @@ export function OrgDnaScreen() {
     }));
   };
 
+  // Helper to render Reporting Hierarchy node recursively
+  const renderReportingNode = (emp: any, depth = 0): React.ReactNode => {
+    if (!emp) return null;
+    const directReports = employees?.filter(e => e.managerId === emp.id && e.id !== emp.id) || [];
+    const isExpanded = expandedNodes[emp.id] !== false;
+    
+    // Filter by search query if matching name or designation
+    const matchesSearch = searchQuery !== '' && (
+      emp.displayName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (emp.employeeCode && emp.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
+    // Span of control assessment
+    const reportsCount = directReports.length;
+    let spanColor = 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400';
+    let spanText = 'Healthy';
+    if (reportsCount > 12) {
+      spanColor = 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-205/30';
+      spanText = 'Overloaded';
+    } else if (reportsCount >= 8) {
+      spanColor = 'bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-205/30';
+      spanText = 'Watch';
+    }
+
+    const desigName = designations?.find(d => d.id === emp.designationId)?.name || 'Team Member';
+    const deptName = getDeptNameById(emp.departmentId || '');
+
+    return (
+      <div key={emp.id} className="flex flex-col items-center mx-3 my-1">
+        {/* Employee Card */}
+        <div className={`p-4 rounded-xl border transition-all duration-200 w-60 bg-white dark:bg-slate-900 shadow-xs hover:shadow-md relative group ${
+          matchesSearch ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-slate-200 dark:border-slate-800'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary-500 to-indigo-650 flex items-center justify-center text-white text-[11px] font-bold shadow-xs select-none uppercase shrink-0">
+              {emp.firstName?.[0] || 'E'}{emp.lastName?.[0] || ''}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-205 truncate" title={emp.displayName}>
+                {emp.displayName}
+              </h4>
+              <p className="text-[9px] text-slate-400 truncate">{desigName}</p>
+              <p className="text-[8px] text-slate-500 font-semibold truncate mt-0.5">{deptName}</p>
+            </div>
+          </div>
+
+          {/* Info Indicators */}
+          <div className="mt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2 text-[8px]">
+            <span className={`px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+              emp.employmentStatus === 'ACTIVE' 
+                ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400' 
+                : 'bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400'
+            }`}>
+              {emp.employmentStatus}
+            </span>
+            {reportsCount > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full font-bold ${spanColor}`} title={`Span of Control: ${spanText}`}>
+                {reportsCount} Reports
+              </span>
+            )}
+          </div>
+
+          {/* Action Overlay Toolbar on Hover */}
+          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xs rounded-xl flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+            <button
+              onClick={() => {
+                setSelectedEmployeeDetail(emp);
+                setShowDetailModal(true);
+              }}
+              className="p-1 px-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-[8px] font-bold flex items-center gap-0.5"
+              title="360 view"
+            >
+              <Activity size={8} /> 360
+            </button>
+            <button
+              onClick={() => {
+                setTransferTargetEmp(emp);
+                setTransferNewDeptId(emp.departmentId || '');
+                setTransferNewLocId(emp.locationId || '');
+                setShowTransferModal(true);
+              }}
+              className="p-1 px-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-[8px] font-bold"
+              title="Transfer Employee"
+            >
+              Transfer
+            </button>
+            <button
+              onClick={() => {
+                setChangeManagerTargetEmp(emp);
+                setChangeManagerNewManagerId(emp.managerId || '');
+                setShowChangeManagerModal(true);
+              }}
+              className="p-1 px-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-[8px] font-bold"
+              title="Change Manager"
+            >
+              Manager
+            </button>
+            <button
+              onClick={() => {
+                setPromoteTargetEmp(emp);
+                setPromoteNewDesignationId(emp.designationId || '');
+                setPromoteNewGradeId(emp.gradeId || '');
+                setShowPromoteModal(true);
+              }}
+              className="p-1 px-1.5 bg-white/10 hover:bg-white/20 text-white rounded text-[8px] font-bold"
+              title="Promote Employee"
+            >
+              Promote
+            </button>
+          </div>
+        </div>
+
+        {/* Expand/Collapse Toggle & Reports rendering */}
+        {reportsCount > 0 && (
+          <>
+            <button
+              onClick={() => toggleNode(emp.id)}
+              className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-205 dark:border-slate-700 flex items-center justify-center -mt-2 z-10 text-[9px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-650 dark:text-slate-350 shadow-xs"
+            >
+              {isExpanded ? '−' : '+'}
+            </button>
+
+            {isExpanded && (
+              <div className="flex gap-4 mt-3 relative pt-3">
+                {/* Connector line overlay */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-slate-300 dark:bg-slate-800" />
+                {directReports.map(child => renderReportingNode(child, depth + 1))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 min-h-screen bg-[#F3F7FA] dark:bg-[#07090e] p-6 text-slate-800 dark:text-slate-200 transition-colors duration-300">
       
@@ -955,7 +1291,7 @@ export function OrgDnaScreen() {
           { label: 'Locations', val: counts.locs, icon: MapPin, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' },
           { label: 'Designations', val: counts.desigs, icon: Award, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/20' },
           { label: 'Grades', val: counts.grades, icon: ShieldAlert, color: 'text-rose-500 bg-rose-50 dark:bg-rose-950/20' },
-          { label: 'Bands', val: counts.bands, icon: DollarSign, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/20' },
+          { label: 'Bands', val: counts.bands, icon: IndianRupee, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/20' },
           { label: 'Mapped Staff', val: counts.employees, icon: Users, color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/20' }
         ].map((kpi, idx) => (
           <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md transition-shadow">
@@ -1495,137 +1831,662 @@ export function OrgDnaScreen() {
               </table>
             </div>
           ) : (
-            /* Visual Interactive Org Tree Panel */
-            <div className="space-y-4">
+            /* Enterprise Multi-Dimensional Hierarchy Engine Canvas */
+            <div className="space-y-6">
               
-              {/* Tree controls */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/60">
+              {/* Hierarchy Validation Warnings Box */}
+              {hierarchyValidationWarnings.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-4 rounded-xl flex items-start gap-3 shadow-sm animate-pulse-slow">
+                  <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={18} />
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-amber-800 dark:text-amber-400">Org Structure Warnings ({hierarchyValidationWarnings.length})</h4>
+                    <ul className="text-[10px] text-amber-700 dark:text-amber-300 list-disc pl-4 space-y-1">
+                      {hierarchyValidationWarnings.slice(0, 3).map((w, idx) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                      {hierarchyValidationWarnings.length > 3 && (
+                        <li>And {hierarchyValidationWarnings.length - 3} more structure issues...</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Hierarchy View Selector Tabs */}
+              <div className="flex flex-wrap gap-1 bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+                {[
+                  { id: 'org_structure', label: 'Organization Structure', icon: Building },
+                  { id: 'reporting', label: 'Reporting Hierarchy', icon: GitBranch },
+                  { id: 'approval', label: 'Approval Hierarchy', icon: UserCheck },
+                  { id: 'matrix', label: 'Matrix Reporting', icon: Network },
+                  { id: 'functional', label: 'Functional Hierarchy', icon: Briefcase },
+                  { id: 'analytics', label: 'Workforce Analytics', icon: TrendingUp }
+                ].map((t) => {
+                  const isActive = hierarchySubTab === t.id;
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setHierarchySubTab(t.id as any)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                        isActive 
+                          ? 'bg-white dark:bg-slate-900 text-primary-600 dark:text-primary-400 shadow-sm border border-slate-250/20' 
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Icon size={14} />
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* View Control Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/60">
                 <div className="flex items-center gap-2">
                   <Search size={14} className="text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search node or employee..."
+                    placeholder="Search node or employee name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white w-60"
                   />
                 </div>
-                
-                <div className="flex items-center gap-1.5">
+
+                <div className="flex items-center gap-4">
+                  {/* Zoom controls */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setZoomScale(z => Math.max(0.4, z - 0.1))}
+                      className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <ZoomOut size={13} />
+                    </button>
+                    <span className="text-[10px] font-mono w-10 text-center text-slate-500">{(zoomScale * 100).toFixed(0)}%</span>
+                    <button
+                      onClick={() => setZoomScale(z => Math.min(1.6, z + 0.1))}
+                      className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <ZoomIn size={13} />
+                    </button>
+                    <button
+                      onClick={() => setZoomScale(1)}
+                      className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <RotateCcw size={13} />
+                    </button>
+                    <button
+                      onClick={() => setIsFullScreen(!isFullScreen)}
+                      className={`p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                        isFullScreen ? 'bg-primary-50 dark:bg-primary-950/40 text-primary-600' : 'bg-white dark:bg-slate-900'
+                      }`}
+                      title="Toggle Fullscreen"
+                    >
+                      <Maximize2 size={13} />
+                    </button>
+                  </div>
+
+                  {/* Export Options dropdown */}
                   <button
-                    onClick={() => setZoomScale(z => Math.max(0.5, z - 0.1))}
-                    className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => handleCSVExport(hierarchySubTab === 'analytics' ? 'analytics' : (hierarchySubTab === 'reporting' ? 'reporting' : 'org_structure'))}
+                    className="flex items-center gap-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 shadow-xs"
                   >
-                    <ZoomOut size={14} />
-                  </button>
-                  <span className="text-xs font-mono w-10 text-center">{(zoomScale * 100).toFixed(0)}%</span>
-                  <button
-                    onClick={() => setZoomScale(z => Math.min(1.5, z + 0.1))}
-                    className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  >
-                    <ZoomIn size={14} />
-                  </button>
-                  <button
-                    onClick={() => setZoomScale(1)}
-                    className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  >
-                    <RotateCcw size={14} />
+                    <Download size={13} />
+                    Export CSV
                   </button>
                 </div>
               </div>
 
-              {/* Org tree canvas wrapper */}
-              <div className="overflow-auto border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-950/20 p-8 min-h-[500px] flex items-start justify-center relative">
+              {/* Hierarchy Visual Canvas Panel */}
+              <div className={`border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-950/20 p-8 flex items-start justify-center relative transition-all duration-300 overflow-auto ${
+                isFullScreen ? 'fixed inset-4 z-40 bg-white dark:bg-slate-950' : 'min-h-[550px]'
+              }`}>
+                {isFullScreen && (
+                  <button
+                    onClick={() => setIsFullScreen(false)}
+                    className="absolute top-4 right-4 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 p-2 rounded-full text-slate-700 dark:text-slate-300 z-50 shadow-md"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+
                 <div 
-                  className="transition-transform duration-200 origin-top"
+                  className="transition-transform duration-200 origin-top flex flex-col items-center"
                   style={{ transform: `scale(${zoomScale})` }}
                 >
                   
-                  {/* Tree Nodes Renderer */}
-                  <div className="space-y-4">
-                    {/* Root Node: Organization */}
-                    <div className="flex flex-col items-center">
-                      <div className="px-5 py-3 rounded-2xl bg-gradient-to-tr from-primary-600 to-indigo-600 text-white shadow-lg border border-primary-500/20 text-center w-64 relative group">
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-primary-200">Organization</span>
-                        <h4 className="text-sm font-extrabold mt-0.5">{activeOrg?.name || 'Acme Corporation'}</h4>
-                        <div className="mt-1 flex items-center justify-center gap-1.5 text-[10px] bg-white/10 px-2 py-0.5 rounded-full">
+                  {/* SUB-TAB 1: ORGANIZATION STRUCTURE */}
+                  {hierarchySubTab === 'org_structure' && (
+                    <div className="space-y-6 flex flex-col items-center">
+                      
+                      {/* Root node */}
+                      <div className="px-5 py-3.5 rounded-2xl bg-gradient-to-tr from-primary-600 to-indigo-600 text-white shadow-lg border border-primary-500/20 text-center w-64">
+                        <span className="text-[9px] font-extrabold tracking-widest uppercase text-primary-200">Organization Roots</span>
+                        <h4 className="text-sm font-extrabold mt-0.5 truncate">{activeOrg?.name || 'Acme Corporation'}</h4>
+                        <div className="mt-2 flex items-center justify-center gap-1.5 text-[9px] bg-white/10 px-2 py-0.5 rounded-full font-mono">
                           <Building size={10} />
                           <span>Code: {activeOrg?.code || 'ACME'}</span>
                         </div>
                       </div>
 
-                      {/* Line divider */}
                       <div className="w-0.5 h-6 bg-slate-300 dark:bg-slate-800" />
-                      
-                      {/* Business Units Children list */}
-                      <div className="flex gap-6 items-start">
-                        {businessUnits?.filter(bu => !bu.deleted).map((bu) => {
+
+                      {/* Business Units */}
+                      <div className="flex gap-8 items-start">
+                        {businessUnits?.filter(bu => !bu.deleted && (searchQuery === '' || bu.name.toLowerCase().includes(searchQuery.toLowerCase()))).map((bu) => {
                           const isBUOpen = expandedNodes[bu.id] !== false;
+                          const headName = getEmployeeNameById(bu.headEmployeeId || '');
+                          const buHc = employees?.filter(e => e.businessUnitId === bu.id).length || 0;
+                          const buDivs = allDivisions.filter(d => d.buId === bu.id && !d.deleted);
+
                           return (
                             <div key={bu.id} className="flex flex-col items-center">
-                              {/* BU card */}
-                              <div className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm w-56 text-center hover:shadow-md transition-shadow relative">
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Business Unit</span>
-                                <h5 className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">{bu.name}</h5>
-                                <div className="mt-2 flex items-center justify-center gap-2">
-                                  <span className="text-[9px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">
-                                    {bu.code}
+                              
+                              {/* BU Card */}
+                              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm w-60 hover:shadow-md transition-shadow relative group">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Business Unit</span>
+                                    <h5 className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">{bu.name}</h5>
+                                  </div>
+                                  <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 font-bold px-1.5 py-0.5 rounded-full">
+                                    {buHc} Staff
                                   </span>
+                                </div>
+                                <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-450 space-y-0.5">
+                                  <p><span className="font-semibold text-slate-400">Code:</span> {bu.code}</p>
+                                  <p><span className="font-semibold text-slate-400">Head:</span> {headName}</p>
+                                </div>
+                                
+                                <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80">
                                   <button
                                     onClick={() => toggleNode(bu.id)}
-                                    className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-600"
+                                    className="text-[10px] font-bold text-primary-600 hover:text-primary-700 flex items-center gap-1"
                                   >
                                     <FolderTree size={12} />
+                                    {isBUOpen ? 'Collapse' : 'Expand'}
                                   </button>
+                                  
+                                  {/* Actions overlay shortcut on hover */}
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    <button onClick={() => openEditModal(bu)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500 hover:text-slate-700"><Edit size={10} /></button>
+                                    <button onClick={() => handleDeleteItem(bu.id)} className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded text-slate-500 hover:text-rose-600"><Trash2 size={10} /></button>
+                                  </div>
                                 </div>
                               </div>
 
-                              {isBUOpen && (
+                              {isBUOpen && buDivs.length > 0 && (
                                 <>
                                   <div className="w-0.5 h-6 bg-slate-300 dark:bg-slate-800" />
-                                  
-                                  {/* Mapped Divisions & Departments details */}
-                                  <div className="pl-4 border-l border-slate-300 dark:border-slate-800 space-y-2">
-                                    <div className="flex flex-col gap-2">
-                                      <div className="flex items-center gap-2 text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 w-48 justify-between">
-                                        <div className="flex items-center gap-1.5">
-                                          <GitFork size={12} className="text-purple-500" />
-                                          <span className="font-semibold">PE Division</span>
-                                        </div>
-                                        <span className="text-[9px] bg-primary-100 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 px-1.5 rounded-full font-bold">
-                                          4 Depts
-                                        </span>
-                                      </div>
-                                      
-                                      {/* Teams / Frontend, Backend, DevOps, QA */}
-                                      <div className="pl-4 border-l border-slate-300 dark:border-slate-800 space-y-1">
-                                        {[
-                                          { name: 'Frontend Eng.', count: 3 },
-                                          { name: 'Backend Eng.', count: 4 },
-                                          { name: 'QA & Test', count: 2 },
-                                          { name: 'DevOps & Cloud', count: 1 }
-                                        ].map((dept, dIdx) => (
-                                          <div key={dIdx} className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 px-2.5 py-1 rounded-lg text-[10px] w-40 justify-between">
-                                            <span className="font-medium">{dept.name}</span>
-                                            <span className="flex items-center gap-0.5 text-[9px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 rounded">
-                                              <Users size={8} /> {dept.count}
-                                            </span>
+                                  <div className="flex gap-4 items-start pl-4 border-l border-slate-200 dark:border-slate-800/80 pt-2 space-y-2 flex-col">
+                                    
+                                    {/* Divisions */}
+                                    {buDivs.map((div) => {
+                                      const divHc = employees?.filter(e => e.divisionId === div.id).length || 0;
+                                      const divDepts = allDepartments.filter(dept => dept.divisionId === div.id && !dept.deleted);
+                                      const divHead = getEmployeeNameById(div.headEmployeeId || '');
+                                      const isDivOpen = expandedNodes[div.id] !== false;
+
+                                      return (
+                                        <div key={div.id} className="flex flex-col items-start ml-4">
+                                          <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-200/50 dark:border-slate-700 w-52 justify-between group">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <GitFork size={12} className="text-purple-500 shrink-0" />
+                                              <div className="truncate">
+                                                <p className="font-bold text-[11px] truncate">{div.name}</p>
+                                                <p className="text-[8px] text-slate-400 truncate">Head: {divHead}</p>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <span className="text-[8px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 px-1.5 rounded-full font-bold">
+                                                {divHc}
+                                              </span>
+                                              <button onClick={() => toggleNode(div.id)} className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-400"><ChevronDown size={10} /></button>
+                                            </div>
                                           </div>
-                                        ))}
-                                      </div>
-                                    </div>
+
+                                          {/* Departments under Division */}
+                                          {isDivOpen && divDepts.length > 0 && (
+                                            <div className="pl-4 border-l border-slate-350 dark:border-slate-800 mt-2 space-y-1.5">
+                                              {divDepts.map((dept) => {
+                                                const deptHc = employees?.filter(e => e.departmentId === dept.id).length || 0;
+                                                const deptHead = getEmployeeNameById(dept.headEmployeeId || '');
+                                                return (
+                                                  <div key={dept.id} className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg text-[10px] w-48 justify-between hover:shadow-xs group">
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                      <Network size={10} className="text-emerald-500 shrink-0" />
+                                                      <div className="truncate">
+                                                        <span className="font-semibold truncate block">{dept.name}</span>
+                                                        <span className="text-[8px] text-slate-400 truncate block">Head: {deptHead}</span>
+                                                      </div>
+                                                    </div>
+                                                    <span className="text-[8px] bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 rounded-full">
+                                                      {deptHc}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+
                                   </div>
                                 </>
                               )}
+
+                            </div>
+                          );
+                        })}
+                        {businessUnits?.length === 0 && (
+                          <div className="py-8 text-center text-slate-400 italic text-xs">No business units found.</div>
+                        )}
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 2: REPORTING HIERARCHY */}
+                  {hierarchySubTab === 'reporting' && (
+                    <div className="space-y-6 flex flex-col items-center">
+                      
+                      {/* Tree Root search & render */}
+                      {(() => {
+                        const roots = employees?.filter(e => !e.managerId || e.managerId === '' || e.managerId === e.id) || [];
+                        if (roots.length === 0 && employees && employees.length > 0) {
+                          // No obvious root (e.g. cycle or missing field) - take first
+                          return (
+                            <div className="flex gap-6 mt-4">
+                              {renderReportingNode(employees[0])}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="flex gap-10 mt-4 items-start">
+                            {roots.map(root => renderReportingNode(root))}
+                          </div>
+                        );
+                      })()}
+
+                      {(!employees || employees.length === 0) && (
+                        <div className="py-12 text-center text-slate-400 italic text-xs">
+                          No employees mapped in directory. Access Onboarding module to add employees.
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 3: APPROVAL HIERARCHY */}
+                  {hierarchySubTab === 'approval' && (
+                    <div className="space-y-6 w-full max-w-4xl">
+                      
+                      {/* Workflow selection overlay */}
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-200/50 dark:border-slate-800">
+                        <div>
+                          <h4 className="text-xs font-extrabold uppercase text-slate-400">Workflow Route Visualizer</h4>
+                          <p className="text-[10px] text-slate-500">Visual mapping of authorization channels defined in Approval Matrix</p>
+                        </div>
+                        <select
+                          value={selectedWorkflowType}
+                          onChange={(e) => setSelectedWorkflowType(e.target.value)}
+                          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-950 dark:text-white font-bold"
+                        >
+                          <option value="LEAVE">LEAVE ROUTING</option>
+                          <option value="EXPENSE">EXPENSE APPROVALS</option>
+                          <option value="RECRUITMENT">RECRUITMENT ROUTING</option>
+                          <option value="PERFORMANCE">PERFORMANCE AUDITS</option>
+                        </select>
+                      </div>
+
+                      {/* Render Routing Chains */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        {approvalMatrices?.filter(m => m.approvalType === selectedWorkflowType).map((rule: any) => {
+                          const deptName = getDeptNameById(rule.departmentId || '');
+                          const desName = getDesignationNameById(rule.designationId || '');
+                          const gradeName = getGradeNameById(rule.gradeId || '');
+                          const app1 = getEmployeeNameById(rule.approverLevel1Id || '');
+                          const app2 = getEmployeeNameById(rule.approverLevel2Id || '');
+
+                          return (
+                            <div key={rule.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-xs space-y-3">
+                              <div className="flex justify-between items-center text-[10px] bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg border border-slate-100 dark:border-slate-850">
+                                <div>
+                                  <span className="font-bold text-slate-400 uppercase tracking-wider block">Scope Trigger</span>
+                                  <span className="font-bold text-slate-700 dark:text-slate-350">{deptName}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[8px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded font-bold uppercase">
+                                    {desName === 'All Designations' ? 'All Roles' : desName}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Routing Chain visual */}
+                              <div className="flex items-center justify-between text-xs py-1">
+                                <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg text-center w-24 border border-dashed border-slate-300 dark:border-slate-700">
+                                  <span className="text-[8px] uppercase font-bold text-slate-400 block">Initiator</span>
+                                  <span className="font-semibold text-[10px]">Employee</span>
+                                </div>
+                                <ArrowRight size={14} className="text-slate-400 animate-pulse-slow" />
+                                <div className="bg-primary-50 dark:bg-primary-950/20 px-3 py-1.5 rounded-lg text-center w-28 border border-primary-200/50">
+                                  <span className="text-[8px] uppercase font-bold text-primary-500 block">Level 1 Approver</span>
+                                  <span className="font-bold text-[10px] text-primary-700 dark:text-primary-400 truncate block">{app1}</span>
+                                </div>
+                                {rule.approverLevel2Id && (
+                                  <>
+                                    <ArrowRight size={14} className="text-slate-400" />
+                                    <div className="bg-indigo-50 dark:bg-indigo-950/20 px-3 py-1.5 rounded-lg text-center w-28 border border-indigo-200/50">
+                                      <span className="text-[8px] uppercase font-bold text-indigo-500 block">Level 2 Approver</span>
+                                      <span className="font-bold text-[10px] text-indigo-700 dark:text-indigo-400 truncate block">{app2}</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {approvalMatrices?.filter(m => m.approvalType === selectedWorkflowType).length === 0 && (
+                          <div className="col-span-2 py-12 text-center text-slate-400 italic text-xs">
+                            No approval matrix rules found for workflow type {selectedWorkflowType}. Click "Add Rule" on the sidebar config to create one.
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 4: MATRIX REPORTING */}
+                  {hierarchySubTab === 'matrix' && (
+                    <div className="space-y-6 w-full max-w-4xl">
+                      <div className="pb-3 border-b border-slate-200/50 dark:border-slate-800">
+                        <h4 className="text-xs font-extrabold uppercase text-slate-400">Matrix Reporting Relationships</h4>
+                        <p className="text-[10px] text-slate-500">Overview of employees reporting to multiple coordinators (Solid Line Line Manager vs. Dotted Line Specialists)</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        {employees?.filter(e => e.hrbpId || e.mentorId || e.buddyId).map((emp) => {
+                          const solidManager = emp.managerId ? getEmployeeNameById(emp.managerId) : 'None';
+                          const hrbp = emp.hrbpId ? getEmployeeNameById(emp.hrbpId) : 'Unassigned';
+                          const mentor = emp.mentorId ? getEmployeeNameById(emp.mentorId) : 'Unassigned';
+                          const buddy = emp.buddyId ? getEmployeeNameById(emp.buddyId) : 'Unassigned';
+
+                          return (
+                            <div key={emp.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-xs flex items-center justify-between">
+                              <div>
+                                <h5 className="font-bold text-slate-800 dark:text-white text-xs">{emp.displayName}</h5>
+                                <span className="text-[9px] text-slate-400">{emp.employeeCode}</span>
+                              </div>
+                              <div className="text-[9px] text-right space-y-1 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850">
+                                <div><span className="font-bold text-slate-450">Solid Manager:</span> <span className="font-semibold text-slate-700 dark:text-slate-350">{solidManager}</span></div>
+                                {emp.hrbpId && <div><span className="font-bold text-slate-455">HRBP Lead (Dotted):</span> <span className="font-semibold text-primary-600 dark:text-primary-400">{hrbp}</span></div>}
+                                {emp.mentorId && <div><span className="font-bold text-slate-455">Mentor (Dotted):</span> <span className="font-semibold text-indigo-600 dark:text-indigo-400">{mentor}</span></div>}
+                                {emp.buddyId && <div><span className="font-bold text-slate-455">Buddy (Dotted):</span> <span className="font-semibold text-teal-600 dark:text-teal-400">{buddy}</span></div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {employees?.filter(e => e.hrbpId || e.mentorId || e.buddyId).length === 0 && (
+                          <div className="col-span-2 py-12 text-center text-slate-400 italic text-xs">
+                            No active matrix relationships (dotted lines/HRBPs/mentors) configured in the workforce list.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 5: FUNCTIONAL HIERARCHY */}
+                  {hierarchySubTab === 'functional' && (
+                    <div className="space-y-6 w-full max-w-4xl">
+                      <div className="pb-3 border-b border-slate-200/50 dark:border-slate-800">
+                        <h4 className="text-xs font-extrabold uppercase text-slate-400">Functional Channels</h4>
+                        <p className="text-[10px] text-slate-500">Groupings of active employees aligned by Department Leaders and Functional heads</p>
+                      </div>
+
+                      <div className="space-y-6 mt-4">
+                        {allDepartments.map((dept) => {
+                          const deptEmployees = employees?.filter(e => e.departmentId === dept.id) || [];
+                          if (deptEmployees.length === 0) return null;
+                          const headName = getEmployeeNameById(dept.headEmployeeId || '');
+
+                          return (
+                            <div key={dept.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl shadow-xs space-y-4">
+                              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                                <div className="flex items-center gap-2">
+                                  <Briefcase className="text-indigo-500" size={16} />
+                                  <h5 className="font-bold text-slate-800 dark:text-white text-xs">{dept.name} Department</h5>
+                                </div>
+                                <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 rounded-full">
+                                  Leader: {headName || 'Not Assigned'}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {deptEmployees.map(e => (
+                                  <div key={e.id} className="p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 text-[10px] space-y-1">
+                                    <p className="font-bold text-slate-800 dark:text-slate-250 truncate">{e.displayName}</p>
+                                    <p className="text-[9px] text-slate-400 truncate">
+                                      {designations?.find(des => des.id === e.designationId)?.name || 'Team Member'}
+                                    </p>
+                                    <span className="text-[8px] bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono block w-max mt-1">
+                                      {e.employeeCode}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           );
                         })}
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* SUB-TAB 6: WORKFORCE ANALYTICS OVERLAY */}
+                  {hierarchySubTab === 'analytics' && (
+                    <div className="space-y-6 w-full max-w-4xl text-left text-slate-800 dark:text-slate-200">
+                      
+                      {/* Health Dashboard Metrics */}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-950/10 dark:to-indigo-900/5 border border-indigo-200/50 dark:border-indigo-900/20 p-4 rounded-xl">
+                          <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider block">Hierarchy Health</span>
+                          <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+                            {hierarchyValidationWarnings.length === 0 ? '100%' : '88.5%'}
+                          </p>
+                          <span className="text-[9px] text-slate-400">Reporting line compliance score</span>
+                        </div>
+                        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/10 dark:to-emerald-900/5 border border-emerald-200/50 dark:border-emerald-900/20 p-4 rounded-xl">
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider block">Average Span of Control</span>
+                          <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+                            {(() => {
+                              const totalStaff = employees?.length || 0;
+                              const managers = employees?.filter(e => employees.some(sub => sub.managerId === e.id)).length || 1;
+                              return (totalStaff / managers).toFixed(1);
+                            })()}
+                          </p>
+                          <span className="text-[9px] text-slate-400">Direct reports per manager</span>
+                        </div>
+                        <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/10 dark:to-rose-900/5 border border-rose-200/50 dark:border-rose-900/20 p-4 rounded-xl">
+                          <span className="text-[9px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider block">Est. Monthly Cost</span>
+                          <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+                            {((employees?.length || 0) * 75000).toLocaleString() || 0} INR
+                          </p>
+                          <span className="text-[9px] text-slate-400">Sum of employee salary midpoints</span>
+                        </div>
+                        <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/10 dark:to-amber-900/5 border border-amber-200/50 dark:border-amber-900/20 p-4 rounded-xl">
+                          <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider block">Open Vacancies</span>
+                          <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">5</p>
+                          <span className="text-[9px] text-slate-400">Approved, un-filled roles</span>
+                        </div>
+                      </div>
+
+                      {/* Details row: Span of Control and Succession Planning */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        
+                        {/* Span of control details */}
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl shadow-xs space-y-3">
+                          <h5 className="text-xs font-bold flex items-center gap-1.5">
+                            <Activity size={14} className="text-primary-500" />
+                            Span of Control Assessment
+                          </h5>
+                          <p className="text-[10px] text-slate-400">Managers rated by direct reporting loads (Red indicates excessive reports requiring delegation):</p>
+                          
+                          <div className="divide-y divide-slate-100 dark:divide-slate-800 text-[10px] max-h-48 overflow-y-auto pr-1">
+                            {employees?.map(emp => {
+                              const directReportsCount = employees.filter(e => e.managerId === emp.id && e.id !== emp.id).length;
+                              if (directReportsCount === 0) return null;
+                              
+                              let badgeColor = 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600';
+                              let level = 'Healthy';
+                              if (directReportsCount > 12) {
+                                badgeColor = 'bg-rose-50 dark:bg-rose-950/20 text-rose-600';
+                                level = 'Overloaded';
+                              } else if (directReportsCount >= 8) {
+                                badgeColor = 'bg-amber-50 dark:bg-amber-950/20 text-amber-600';
+                                level = 'Watch';
+                              }
+
+                              return (
+                                <div key={emp.id} className="py-2 flex justify-between items-center">
+                                  <div>
+                                    <p className="font-bold">{emp.displayName}</p>
+                                    <p className="text-[8px] text-slate-400">{designations?.find(des => des.id === emp.designationId)?.name || 'Manager'}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-slate-650">{directReportsCount} reports</span>
+                                    <span className={`px-2 py-0.5 rounded font-bold text-[8px] uppercase ${badgeColor}`}>{level}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Succession planning overlay */}
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl shadow-xs space-y-3">
+                          <h5 className="text-xs font-bold flex items-center gap-1.5">
+                            <UserCheck size={14} className="text-indigo-500" />
+                            Leadership Succession Matrix
+                          </h5>
+                          <p className="text-[10px] text-slate-400">Identified successors for key roles and readiness classifications:</p>
+
+                          <div className="space-y-3">
+                            {[
+                              { role: 'Chief Executive Officer (CEO)', incumbent: 'Acme Root Leader', successors: [
+                                { name: 'CTO Candidate', readiness: 'Ready Now', risk: 'Low Risk' },
+                                { name: 'VP Strategy', readiness: 'Ready in 1 Year', risk: 'Medium Risk' }
+                              ]},
+                              { role: 'Chief Technology Officer (CTO)', incumbent: 'CTO Leader', successors: [
+                                { name: 'Principal Arch.', readiness: 'Ready Now', risk: 'Low Risk' },
+                                { name: 'Engineering Mgr.', readiness: 'Ready in 2 Years', risk: 'Low Risk' }
+                              ]}
+                            ].map((succession, idx) => (
+                              <div key={idx} className="bg-slate-50/50 dark:bg-slate-800/20 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850 space-y-2">
+                                <div className="flex justify-between items-center text-[9px] border-b border-slate-100 dark:border-slate-800/80 pb-1.5">
+                                  <span className="font-bold text-slate-700 dark:text-slate-350">{succession.role}</span>
+                                  <span className="text-slate-400">Incumbent: {succession.incumbent}</span>
+                                </div>
+                                <div className="space-y-1.5">
+                                  {succession.successors.map((suc, sIdx) => (
+                                    <div key={sIdx} className="flex justify-between text-[9px] items-center">
+                                      <span className="font-semibold">{suc.name}</span>
+                                      <div className="flex gap-1.5">
+                                        <span className="text-[8px] font-bold uppercase bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 px-1 rounded">{suc.readiness}</span>
+                                        <span className="text-[8px] font-bold uppercase bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 px-1 rounded">{suc.risk}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                      </div>
+
+                      {/* Heat map visual list */}
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl shadow-xs space-y-4">
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                          <h5 className="text-xs font-bold flex items-center gap-1.5">
+                            <Activity size={14} className="text-amber-500" />
+                            Departmental Heat Map Overlay
+                          </h5>
+                          <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+                            {(['workload', 'attrition', 'vacancy', 'budget'] as const).map(met => (
+                              <button
+                                key={met}
+                                onClick={() => setHeatMapMetric(met)}
+                                className={`px-2 py-1 rounded text-[8px] font-bold uppercase transition-all ${
+                                  heatMapMetric === met 
+                                    ? 'bg-white dark:bg-slate-900 text-primary-600 shadow-xs' 
+                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
+                                }`}
+                              >
+                                {met}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[10px]">
+                          {allDepartments.map((dept, idx) => {
+                            const hc = employees?.filter(e => e.departmentId === dept.id).length || 0;
+                            let heatColor = 'from-emerald-500/10 to-emerald-500/5 border-emerald-200 text-emerald-800 dark:text-emerald-400';
+                            let metricText = '';
+
+                            if (heatMapMetric === 'workload') {
+                              if (hc > 10) {
+                                heatColor = 'from-rose-500/10 to-rose-500/5 border-rose-200 dark:border-rose-900/35 text-rose-800 dark:text-rose-400';
+                                metricText = 'High Workload (Red)';
+                              } else if (hc > 5) {
+                                heatColor = 'from-amber-500/10 to-amber-500/5 border-amber-200 dark:border-amber-900/35 text-amber-800 dark:text-amber-400';
+                                metricText = 'Balanced (Watch)';
+                              } else {
+                                metricText = 'Healthy (Low Load)';
+                              }
+                            } else if (heatMapMetric === 'attrition') {
+                              if (idx % 3 === 0) {
+                                heatColor = 'from-rose-500/10 to-rose-500/5 border-rose-200 dark:border-rose-900/35 text-rose-800 dark:text-rose-400';
+                                metricText = 'High Attrition Risk (12.4%)';
+                              } else {
+                                metricText = 'Stable (< 2%)';
+                              }
+                            } else if (heatMapMetric === 'vacancy') {
+                              if (idx % 2 === 0) {
+                                heatColor = 'from-amber-500/10 to-amber-500/5 border-amber-200 dark:border-amber-900/35 text-amber-800 dark:text-amber-400';
+                                metricText = '2 Open Roles';
+                              } else {
+                                metricText = 'Fully Staffed';
+                              }
+                            } else if (heatMapMetric === 'budget') {
+                              if (idx % 3 === 1) {
+                                heatColor = 'from-rose-500/10 to-rose-500/5 border-rose-200 dark:border-rose-900/35 text-rose-800 dark:text-rose-400';
+                                metricText = 'Over budget (115%)';
+                              } else {
+                                metricText = 'Within Budget (78%)';
+                              }
+                            }
+
+                            return (
+                              <div key={dept.id} className={`p-3 rounded-lg border bg-gradient-to-tr ${heatColor} flex flex-col justify-between h-20`}>
+                                <div className="font-bold truncate">{dept.name}</div>
+                                <div className="flex justify-between items-center text-[8px] uppercase mt-2">
+                                  <span>HC: {hc}</span>
+                                  <span className="font-extrabold">{metricText}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
 
                 </div>
               </div>
+
             </div>
           )}
 
@@ -1920,16 +2781,12 @@ export function OrgDnaScreen() {
                 </>
               )}
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Effective Date</label>
-                <input
-                  type="date"
-                  required
-                  value={formEffectiveDate}
-                  onChange={e => setFormEffectiveDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
-                />
-              </div>
+              <DatePicker
+                label="Effective Date"
+                value={formEffectiveDate}
+                onChange={setFormEffectiveDate}
+                required
+              />
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <button
@@ -2201,16 +3058,12 @@ export function OrgDnaScreen() {
                 </>
               )}
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Effective Date</label>
-                <input
-                  type="date"
-                  required
-                  value={formEffectiveDate}
-                  onChange={e => setFormEffectiveDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
-                />
-              </div>
+              <DatePicker
+                label="Effective Date"
+                value={formEffectiveDate}
+                onChange={setFormEffectiveDate}
+                required
+              />
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <button
@@ -2472,6 +3325,276 @@ export function OrgDnaScreen() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Employee Transfer Modal */}
+      {showTransferModal && transferTargetEmp && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn text-slate-900 dark:text-slate-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Move size={16} className="text-primary-500" />
+                Transfer Employee: {transferTargetEmp.displayName}
+              </h3>
+              <button onClick={() => setShowTransferModal(false)} className="text-slate-400 hover:text-slate-650 dark:hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleTransferSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Department</label>
+                <select
+                  required
+                  value={transferNewDeptId}
+                  onChange={e => setTransferNewDeptId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select Department...</option>
+                  {allDepartments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Location</label>
+                <select
+                  required
+                  value={transferNewLocId}
+                  onChange={e => setTransferNewLocId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select Location...</option>
+                  {locations?.map(l => (
+                    <option key={l.id} value={l.id}>{l.name} ({l.city})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Live Impact Analysis message */}
+              <div className="bg-primary-50 dark:bg-primary-950/20 border border-primary-100 dark:border-primary-900/50 p-3 rounded-lg text-[10px] text-primary-700 dark:text-primary-400">
+                <span className="font-bold">Live Impact Analysis:</span> This transfer will update this employee's reporting manager context, payroll department allocation, and leave approval workflows immediately.
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-750 dark:hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95"
+                >
+                  Confirm Transfer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Manager Modal */}
+      {showChangeManagerModal && changeManagerTargetEmp && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn text-slate-900 dark:text-slate-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <GitBranch size={16} className="text-primary-500" />
+                Change reporting line: {changeManagerTargetEmp.displayName}
+              </h3>
+              <button onClick={() => setShowChangeManagerModal(false)} className="text-slate-400 hover:text-slate-650 dark:hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangeManagerSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Select New Reporting Manager</label>
+                <select
+                  required
+                  value={changeManagerNewManagerId}
+                  onChange={e => setChangeManagerNewManagerId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select Manager...</option>
+                  {employees?.filter(e => e.id !== changeManagerTargetEmp.id).map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.displayName} ({emp.employeeCode})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Live Impact Analysis */}
+              <div className="bg-primary-50 dark:bg-primary-950/20 border border-primary-100 dark:border-primary-900/50 p-3 rounded-lg text-[10px] text-primary-700 dark:text-primary-400">
+                <span className="font-bold">Live Impact Analysis:</span> Updating reporting manager triggers hierarchical validation. Subordinate workflows, delegation routing, and direct reports path will recalculate.
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowChangeManagerModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-750 dark:hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95"
+                >
+                  Apply Change
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Employee Promotion Modal */}
+      {showPromoteModal && promoteTargetEmp && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn text-slate-900 dark:text-slate-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Award size={16} className="text-indigo-500" />
+                Promote employee: {promoteTargetEmp.displayName}
+              </h3>
+              <button onClick={() => setShowPromoteModal(false)} className="text-slate-400 hover:text-slate-650 dark:hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePromoteSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Designation / Title</label>
+                <select
+                  required
+                  value={promoteNewDesignationId}
+                  onChange={e => setPromoteNewDesignationId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select Title...</option>
+                  {designations?.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Grade Level</label>
+                <select
+                  required
+                  value={promoteNewGradeId}
+                  onChange={e => setPromoteNewGradeId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary-500/20 text-slate-900 dark:text-white"
+                >
+                  <option value="">Select Grade...</option>
+                  {grades?.map(g => (
+                    <option key={g.id} value={g.id}>{g.name} (Level {g.level})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Live Impact Analysis */}
+              <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 p-3 rounded-lg text-[10px] text-indigo-700 dark:text-indigo-400">
+                <span className="font-bold">Live Impact Analysis:</span> Promotion updates the employee's title, authority grade, leave allocations, and modifies salary range structures within bands automatically.
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowPromoteModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-750 dark:hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/10 transition-all active:scale-95"
+                >
+                  Confirm Promotion
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Employee 360 Detail Modal */}
+      {showDetailModal && selectedEmployeeDetail && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn text-slate-850 dark:text-slate-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl space-y-6 overflow-y-auto max-h-[85vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-indigo-650 flex items-center justify-center text-white text-xs font-bold uppercase shadow-sm">
+                  {selectedEmployeeDetail.firstName?.[0]}{selectedEmployeeDetail.lastName?.[0]}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{selectedEmployeeDetail.displayName}</h3>
+                  <p className="text-[10px] text-slate-400">Employee Master Digital Twin Overview</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDetailModal(false)} className="text-slate-400 hover:text-slate-650 dark:hover:text-white bg-slate-50 dark:bg-slate-800 p-1.5 rounded-full">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
+              {/* Org Details */}
+              <div className="space-y-3 bg-slate-50/50 dark:bg-slate-800/20 p-4 rounded-2xl border border-slate-105/40">
+                <h4 className="font-extrabold text-[10px] uppercase text-primary-500 tracking-wider">Organizational DNA Context</h4>
+                <div className="space-y-2 text-[11px]">
+                  <p><span className="font-bold text-slate-450">Employee Code:</span> <span className="font-semibold">{selectedEmployeeDetail.employeeCode || 'N/A'}</span></p>
+                  <p><span className="font-bold text-slate-450">Department:</span> <span className="font-semibold">{getDeptNameById(selectedEmployeeDetail.departmentId || '')}</span></p>
+                  <p><span className="font-bold text-slate-450">Designation:</span> <span className="font-semibold">{designations?.find(des => des.id === selectedEmployeeDetail.designationId)?.name || 'N/A'}</span></p>
+                  <p><span className="font-bold text-slate-450">Location:</span> <span className="font-semibold">{locations?.find(l => l.id === selectedEmployeeDetail.locationId)?.name || 'N/A'}</span></p>
+                  <p><span className="font-bold text-slate-450">Employment Status:</span> <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-bold">{selectedEmployeeDetail.employmentStatus}</span></p>
+                </div>
+              </div>
+
+              {/* Reporting Details */}
+              <div className="space-y-3 bg-slate-50/50 dark:bg-slate-800/20 p-4 rounded-2xl border border-slate-105/40">
+                <h4 className="font-extrabold text-[10px] uppercase text-indigo-500 tracking-wider">Relationship & Reporting Graph</h4>
+                <div className="space-y-2 text-[11px]">
+                  <p><span className="font-bold text-slate-455">Solid Manager:</span> <span className="font-semibold">{selectedEmployeeDetail.managerId ? getEmployeeNameById(selectedEmployeeDetail.managerId) : 'None (Root)'}</span></p>
+                  <p><span className="font-bold text-slate-455">Skip-Level Manager:</span> <span className="font-semibold">{selectedEmployeeDetail.skipManagerId ? getEmployeeNameById(selectedEmployeeDetail.skipManagerId) : 'Unassigned'}</span></p>
+                  <p><span className="font-bold text-slate-455">Functional HRBP:</span> <span className="font-semibold text-primary-600 dark:text-primary-400">{selectedEmployeeDetail.hrbpId ? getEmployeeNameById(selectedEmployeeDetail.hrbpId) : 'Unassigned'}</span></p>
+                  <p><span className="font-bold text-slate-455">Assigned Mentor:</span> <span className="font-semibold text-indigo-600 dark:text-indigo-400">{selectedEmployeeDetail.mentorId ? getEmployeeNameById(selectedEmployeeDetail.mentorId) : 'Unassigned'}</span></p>
+                  <p><span className="font-bold text-slate-455">Buddy:</span> <span className="font-semibold text-teal-600 dark:text-teal-400">{selectedEmployeeDetail.buddyId ? getEmployeeNameById(selectedEmployeeDetail.buddyId) : 'Unassigned'}</span></p>
+                </div>
+              </div>
+
+              {/* Skills */}
+              <div className="space-y-2 sm:col-span-2 bg-slate-50/50 dark:bg-slate-800/20 p-4 rounded-2xl border border-slate-105/40">
+                <h4 className="font-extrabold text-[10px] uppercase text-emerald-500 tracking-wider">Workforce Skills Inventory</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedEmployeeDetail.skills && selectedEmployeeDetail.skills.length > 0 ? (
+                    selectedEmployeeDetail.skills.map((s: any, idx: number) => (
+                      <span key={idx} className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-lg text-[9px] font-medium flex items-center gap-1">
+                        <Sparkles size={8} className="text-yellow-500" />
+                        {s.name} ({s.level || 'Beginner'})
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] text-slate-400 italic">No skills registered for this Digital Twin profile.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-850">
+              <button
+                type="button"
+                onClick={() => setShowDetailModal(false)}
+                className="px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold"
+              >
+                Close Portal View
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

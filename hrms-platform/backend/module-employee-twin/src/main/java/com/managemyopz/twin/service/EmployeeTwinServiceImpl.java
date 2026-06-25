@@ -3,8 +3,13 @@ package com.managemyopz.twin.service;
 import com.managemyopz.shared.entity.TenantContext;
 import com.managemyopz.shared.event.EventPublisher;
 import com.managemyopz.shared.exception.ResourceNotFoundException;
+import com.managemyopz.shared.exception.PlatformException;
+import org.springframework.http.HttpStatus;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
 import com.managemyopz.twin.entity.*;
 import com.managemyopz.twin.event.EmployeeCreatedEvent;
+import com.managemyopz.twin.event.EmployeeManagerChangedEvent;
 import com.managemyopz.twin.event.EmployeePromotedEvent;
 import com.managemyopz.twin.event.EmployeeTerminatedEvent;
 import com.managemyopz.twin.event.EmployeeTransferredEvent;
@@ -26,6 +31,9 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
     private final EmployeeTwinRepository repository;
     private final EventPublisher eventPublisher;
     private final EmployeeCodeGeneratorService codeGeneratorService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     @Transactional
@@ -73,8 +81,8 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
                 f.setTenantId(tenantId);
             }
         }
-        
         EmployeeTwin saved = repository.save(employee);
+        repository.flush();
         
         eventPublisher.publish(new EmployeeCreatedEvent(
             tenantId,
@@ -108,6 +116,12 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
         existing.setPersonalEmail(details.getPersonalEmail());
         existing.setWorkPhone(details.getWorkPhone());
         existing.setPersonalPhone(details.getPersonalPhone());
+        existing.setWorkPhoneCountryCode(details.getWorkPhoneCountryCode());
+        existing.setWorkPhoneNumber(details.getWorkPhoneNumber());
+        existing.setWorkPhoneFull(details.getWorkPhoneFull());
+        existing.setPersonalPhoneCountryCode(details.getPersonalPhoneCountryCode());
+        existing.setPersonalPhoneNumber(details.getPersonalPhoneNumber());
+        existing.setPersonalPhoneFull(details.getPersonalPhoneFull());
 
         // Org DNA mappings
         existing.setOrganizationId(details.getOrganizationId());
@@ -271,12 +285,126 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
     @Transactional
     public void deleteEmployee(UUID id, String triggeredBy) {
         EmployeeTwin twin = getById(id);
+        checkHistoricalRecords(twin.getId());
         repository.delete(twin);
     }
 
     @Override
+    @Transactional
+    public EmployeeTwin archiveEmployee(UUID id, String reason, String triggeredBy) {
+        EmployeeTwin twin = getById(id);
+        twin.setDeleted(true);
+        twin.setDeletedAt(java.time.Instant.now());
+        twin.setDeletedBy(triggeredBy);
+        twin.setArchiveReason(reason);
+        twin.setEmploymentStatus(EmployeeTwin.EmploymentStatus.ARCHIVED);
+        return repository.save(twin);
+    }
+
+    @Override
+    @Transactional
+    public EmployeeTwin restoreEmployee(UUID id, String triggeredBy) {
+        EmployeeTwin twin = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EmployeeTwin", id));
+        twin.setDeleted(false);
+        twin.setDeletedAt(null);
+        twin.setDeletedBy(null);
+        twin.setArchiveReason(null);
+        twin.setEmploymentStatus(EmployeeTwin.EmploymentStatus.ACTIVE);
+        return repository.save(twin);
+    }
+
+    @Override
+    @Transactional
+    public void bulkArchive(List<UUID> ids, String reason, String triggeredBy) {
+        for (UUID id : ids) {
+            archiveEmployee(id, reason, triggeredBy);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void bulkReassignManager(List<UUID> ids, UUID managerId, LocalDate effectiveDate, String reason, String triggeredBy) {
+        if (managerId == null) {
+            throw new PlatformException("Manager must be specified.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+        if (ids == null || ids.isEmpty()) {
+            throw new PlatformException("At least one employee must be selected.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+        if (ids.contains(managerId)) {
+            throw new PlatformException("An employee cannot be reassigned to report to themselves.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+
+        // Validate that the manager exists
+        repository.findById(managerId)
+                .orElseThrow(() -> new PlatformException("Specified manager does not exist.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST"));
+
+        String tenantId = TenantContext.getCurrentTenant();
+
+        for (UUID id : ids) {
+            EmployeeTwin existing = getById(id);
+            UUID oldManagerId = existing.getManagerId();
+            existing.setManagerId(managerId);
+            repository.save(existing);
+
+            eventPublisher.publish(new EmployeeManagerChangedEvent(
+                    tenantId,
+                    triggeredBy,
+                    id,
+                    oldManagerId,
+                    managerId,
+                    effectiveDate != null ? effectiveDate : LocalDate.now(),
+                    reason != null ? reason : "Bulk reassign manager"
+            ));
+        }
+    }
+
+    @Override
+    @Transactional
+    public void bulkTerminate(List<UUID> ids, LocalDate terminationDate, LocalDate finalWorkingDay, String reason, String triggeredBy) {
+        if (ids == null || ids.isEmpty()) {
+            throw new PlatformException("At least one employee must be selected.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+        if (terminationDate == null) {
+            throw new PlatformException("Termination date must be specified.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+        if (finalWorkingDay == null) {
+            throw new PlatformException("Final working day must be specified.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new PlatformException("Termination reason must be specified.", HttpStatus.BAD_REQUEST, "INVALID_REQUEST");
+        }
+
+        String tenantId = TenantContext.getCurrentTenant();
+
+        for (UUID id : ids) {
+            EmployeeTwin existing = getById(id);
+            existing.setEmploymentStatus(EmployeeTwin.EmploymentStatus.TERMINATED);
+            repository.save(existing);
+
+            eventPublisher.publish(new EmployeeTerminatedEvent(
+                    tenantId,
+                    triggeredBy,
+                    id,
+                    terminationDate,
+                    reason + " (Final Working Day: " + finalWorkingDay + ")"
+            ));
+        }
+    }
+
+    private final com.managemyopz.security.service.DataScopeService dataScopeService;
+
+    @Override
     @Transactional(readOnly = true)
     public EmployeeTwin getById(UUID id) {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            boolean inScope = dataScopeService.isRecordInScope(auth.getName(), id);
+            if (!inScope) {
+                log.warn("[DataScope] Access Denied: User {} is not authorized to view employee {}", auth.getName(), id);
+                throw new PlatformException("Access denied: Record out of authorized data scope", HttpStatus.FORBIDDEN, "FORBIDDEN");
+            }
+        }
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("EmployeeTwin", id));
     }
@@ -284,7 +412,93 @@ public class EmployeeTwinServiceImpl implements EmployeeTwinService {
     @Override
     @Transactional(readOnly = true)
     public List<EmployeeTwin> getAllActive() {
-        return repository.findAllActiveByTenant(TenantContext.getCurrentTenant());
+        List<EmployeeTwin> twins = repository.findAllActiveByTenant(TenantContext.getCurrentTenant());
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            String username = auth.getName();
+            return twins.stream()
+                    .filter(t -> dataScopeService.isRecordInScope(username, t.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return twins;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EmployeeTwin> getAll(boolean showArchived) {
+        String tenantId = TenantContext.getCurrentTenant();
+        List<EmployeeTwin> twins;
+        if (showArchived) {
+            twins = repository.findAllByTenant(tenantId);
+        } else {
+            twins = repository.findAllActiveByTenant(tenantId);
+        }
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            String username = auth.getName();
+            return twins.stream()
+                    .filter(t -> dataScopeService.isRecordInScope(username, t.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return twins;
+    }
+
+    private void checkHistoricalRecords(UUID employeeId) {
+        String employeeIdStr = employeeId.toString();
+
+        // 1. Check Leave Requests (leave_requests table, employee_id column)
+        long leaveCount = ((Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM leave_requests WHERE employee_id = UNHEX(REPLACE(:id, '-', '')) AND deleted = 0")
+                .setParameter("id", employeeIdStr)
+                .getSingleResult()).longValue();
+        if (leaveCount > 0) {
+            throw new PlatformException("Employee cannot be deleted because historical records exist.", HttpStatus.BAD_REQUEST, "HISTORICAL_RECORDS_EXIST");
+        }
+
+        // 2. Check Approvals (approval_tasks table, approver_employee_id or delegated_to column)
+        long approvalCount = ((Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM approval_tasks WHERE (approver_employee_id = UNHEX(REPLACE(:id, '-', '')) OR delegated_to = UNHEX(REPLACE(:id, '-', ''))) AND deleted = 0")
+                .setParameter("id", employeeIdStr)
+                .getSingleResult()).longValue();
+        if (approvalCount > 0) {
+            throw new PlatformException("Employee cannot be deleted because historical records exist.", HttpStatus.BAD_REQUEST, "HISTORICAL_RECORDS_EXIST");
+        }
+
+        // 3. Check Recognition Records (recognitions table, giver_employee_id or receiver_employee_id column)
+        long recognitionCount = ((Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM recognitions WHERE (giver_employee_id = UNHEX(REPLACE(:id, '-', '')) OR receiver_employee_id = UNHEX(REPLACE(:id, '-', ''))) AND deleted = 0")
+                .setParameter("id", employeeIdStr)
+                .getSingleResult()).longValue();
+        if (recognitionCount > 0) {
+            throw new PlatformException("Employee cannot be deleted because historical records exist.", HttpStatus.BAD_REQUEST, "HISTORICAL_RECORDS_EXIST");
+        }
+
+        // 4. Check Documents (employee_documents table, employee_twin_id column)
+        long documentCount = ((Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM employee_documents WHERE employee_twin_id = UNHEX(REPLACE(:id, '-', '')) AND deleted = 0")
+                .setParameter("id", employeeIdStr)
+                .getSingleResult()).longValue();
+        if (documentCount > 0) {
+            throw new PlatformException("Employee cannot be deleted because historical records exist.", HttpStatus.BAD_REQUEST, "HISTORICAL_RECORDS_EXIST");
+        }
+
+        // 5. Check Audit Logs (audit_log table, entity_id column)
+        long auditCount = ((Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM audit_log WHERE entity_id = :id AND deleted = 0")
+                .setParameter("id", employeeIdStr)
+                .getSingleResult()).longValue();
+        if (auditCount > 0) {
+            throw new PlatformException("Employee cannot be deleted because historical records exist.", HttpStatus.BAD_REQUEST, "HISTORICAL_RECORDS_EXIST");
+        }
+
+        // 6. Check Payroll Records (payroll_leave_transactions table, employee_id column)
+        long payrollCount = ((Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM payroll_leave_transactions WHERE employee_id = UNHEX(REPLACE(:id, '-', '')) AND deleted = 0")
+                .setParameter("id", employeeIdStr)
+                .getSingleResult()).longValue();
+        if (payrollCount > 0) {
+            throw new PlatformException("Employee cannot be deleted because historical records exist.", HttpStatus.BAD_REQUEST, "HISTORICAL_RECORDS_EXIST");
+        }
     }
 
     @Override

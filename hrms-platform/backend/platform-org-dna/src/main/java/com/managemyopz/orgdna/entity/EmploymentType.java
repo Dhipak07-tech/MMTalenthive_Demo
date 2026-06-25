@@ -17,6 +17,6 @@ public class EmploymentType extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonBackReference("org-employment-types")
     private Organization organization;
 }

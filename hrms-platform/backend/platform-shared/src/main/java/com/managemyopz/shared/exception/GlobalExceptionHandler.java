@@ -60,14 +60,31 @@ public class GlobalExceptionHandler {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         String username = (auth != null) ? auth.getName() : "anonymous";
         String authorities = (auth != null) ? auth.getAuthorities().toString() : "[]";
-        String message = String.format("Access denied for user '%s' with authorities %s. Request details: %s", username, authorities, ex.getMessage());
-        log.warn("Access denied error: {}", message);
+        
+        String detailMessage = ex.getMessage();
+        String displayMessage = detailMessage;
+        
+        if (detailMessage == null || "Access is denied".equalsIgnoreCase(detailMessage)) {
+            displayMessage = "You do not have permission to perform this action.";
+        }
+        
+        String auditMessage = String.format("Access denied for user '%s' with authorities %s. Request details: %s", username, authorities, detailMessage);
+        log.warn("Access denied error: {}", auditMessage);
+        
+        Map<String, String> errorsMap = new HashMap<>();
+        errorsMap.put("username", username);
+        errorsMap.put("authorities", authorities);
+        errorsMap.put("details", detailMessage != null ? detailMessage : "No details");
+        if (detailMessage != null && detailMessage.contains("Missing permission: ")) {
+            errorsMap.put("missingPermission", detailMessage.substring(detailMessage.indexOf("Missing permission: ") + 20));
+        }
         
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(false)
                 .status(HttpStatus.FORBIDDEN.value())
                 .errorCode("ACCESS_DENIED")
-                .message(message)
+                .message(displayMessage)
+                .errors(errorsMap)
                 .timestamp(java.time.Instant.now())
                 .build();
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);

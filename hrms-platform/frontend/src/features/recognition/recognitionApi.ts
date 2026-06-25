@@ -273,6 +273,24 @@ export const recognitionApi = platformApi.injectEndpoints({
       query: () => '/v1/recognition/ai/insights',
       transformResponse: (response: any) => response.data,
     }),
+    getHealthReport: builder.mutation<any, string[]>({
+      query: (employeeIds) => ({
+        url: '/v1/recognition/health/report',
+        method: 'POST',
+        body: employeeIds,
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: ['Recognition'] as any,
+    }),
+    provisionMissingWallets: builder.mutation<any, string[]>({
+      query: (employeeIds) => ({
+        url: '/v1/recognition/health/provision-wallets',
+        method: 'POST',
+        body: employeeIds,
+      }),
+      transformResponse: (response: any) => response.data,
+      invalidatesTags: ['Recognition'] as any,
+    }),
   }),
 });
 
@@ -301,4 +319,6 @@ export const {
   useGetLeaderboardQuery,
   useGetAnalyticsQuery,
   useGetAiInsightsQuery,
+  useGetHealthReportMutation,
+  useProvisionMissingWalletsMutation,
 } = recognitionApi;

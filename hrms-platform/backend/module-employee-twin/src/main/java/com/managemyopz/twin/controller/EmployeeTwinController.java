@@ -1,6 +1,8 @@
 package com.managemyopz.twin.controller;
 
 import com.managemyopz.shared.dto.ApiResponse;
+import com.managemyopz.twin.dto.BulkReassignManagerRequest;
+import com.managemyopz.twin.dto.BulkTerminateRequest;
 import com.managemyopz.twin.entity.EmployeeTwin;
 import com.managemyopz.twin.service.EmployeeTwinService;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +47,8 @@ public class EmployeeTwinController {
     }
 
     @GetMapping
-    public ApiResponse<List<EmployeeTwin>> listEmployees() {
-        List<EmployeeTwin> twins = service.getAllActive();
+    public ApiResponse<List<EmployeeTwin>> listEmployees(@RequestParam(required = false, defaultValue = "false") boolean showArchived) {
+        List<EmployeeTwin> twins = service.getAll(showArchived);
         return ApiResponse.success(twins);
     }
 
@@ -85,7 +87,7 @@ public class EmployeeTwinController {
     }
 
     @PostMapping("/{id}/terminate")
-    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN') or @rbac.hasPermission(authentication,'EMPLOYEE_TERMINATE')")
     public ApiResponse<EmployeeTwin> terminateEmployee(
             @PathVariable UUID id,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate exitDate,
@@ -94,6 +96,70 @@ public class EmployeeTwinController {
         String user = principal != null ? principal.getName() : "system";
         EmployeeTwin updated = service.terminateEmployee(id, exitDate, reason, user);
         return ApiResponse.success(updated, "Employee terminated successfully");
+    }
+
+    @PostMapping("/{id}/archive")
+    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN') or @rbac.hasPermission(authentication,'EMPLOYEE_ARCHIVE')")
+    public ApiResponse<EmployeeTwin> archiveEmployee(
+            @PathVariable UUID id,
+            @RequestParam String reason,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "system";
+        EmployeeTwin archived = service.archiveEmployee(id, reason, user);
+        return ApiResponse.success(archived, "Employee archived successfully");
+    }
+
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN') or @rbac.hasPermission(authentication,'EMPLOYEE_RESTORE')")
+    public ApiResponse<EmployeeTwin> restoreEmployee(
+            @PathVariable UUID id,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "system";
+        EmployeeTwin restored = service.restoreEmployee(id, user);
+        return ApiResponse.success(restored, "Employee restored successfully");
+    }
+
+    @PostMapping("/bulk-archive")
+    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN') or @rbac.hasPermission(authentication,'EMPLOYEE_ARCHIVE')")
+    public ApiResponse<Void> bulkArchiveEmployees(
+            @RequestParam List<UUID> ids,
+            @RequestParam String reason,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "system";
+        service.bulkArchive(ids, reason, user);
+        return ApiResponse.success(null, "Employees archived successfully");
+    }
+
+    @PostMapping("/bulk-reassign-manager")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN')")
+    public ApiResponse<Void> bulkReassignManager(
+            @RequestBody BulkReassignManagerRequest request,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "system";
+        service.bulkReassignManager(
+                request.getEmployeeIds(),
+                request.getManagerId(),
+                request.getEffectiveDate(),
+                request.getReason(),
+                user
+        );
+        return ApiResponse.success(null, "Manager reassigned successfully for selected employees");
+    }
+
+    @PostMapping("/bulk-terminate")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'ROLE_ULTRA_SUPER_ADMIN')")
+    public ApiResponse<Void> bulkTerminate(
+            @RequestBody BulkTerminateRequest request,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "system";
+        service.bulkTerminate(
+                request.getEmployeeIds(),
+                request.getTerminationDate(),
+                request.getFinalWorkingDay(),
+                request.getReason(),
+                user
+        );
+        return ApiResponse.success(null, "Selected employees terminated successfully");
     }
 
     @DeleteMapping("/{id}")

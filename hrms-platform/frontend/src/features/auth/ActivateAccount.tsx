@@ -80,27 +80,27 @@ export function ActivateAccount() {
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-              ManageMyOpz
-            </h2>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Enterprise HR OS</p>
-          </div>
+            ManageMyTalenthive
+          </h2>
+          <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Enterprise HR OS</p>
         </div>
+      </div>
 
-        <div className="my-auto relative z-10 max-w-lg space-y-6">
-          <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight">
-            Activate Your Account
-          </h1>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            Welcome to the organization! Please finalize your corporate user profile setup by configuring your secure account credentials.
-          </p>
-        </div>
+      <div className="my-auto relative z-10 max-w-lg space-y-6">
+        <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight">
+          Activate Your Account
+        </h1>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Welcome to the organization! Please finalize your corporate user profile setup by configuring your secure account credentials.
+        </p>
+      </div>
 
-        <div className="flex items-center justify-between text-xs text-slate-500 relative z-10 border-t border-slate-800 pt-6">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-slate-400" />
-            Zero-Trust Isolation Secured
-          </span>
-          <span>© 2026 ManageMyOpz Inc.</span>
+      <div className="flex items-center justify-between text-xs text-slate-500 relative z-10 border-t border-slate-800 pt-6">
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck size={14} className="text-slate-400" />
+          Zero-Trust Isolation Secured
+        </span>
+        <span>© 2026 ManageMyTalenthive Inc.</span>
         </div>
       </div>
 

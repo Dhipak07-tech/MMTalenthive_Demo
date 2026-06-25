@@ -1,15 +1,13 @@
 package com.managemyopz.security.controller;
 
-import com.managemyopz.security.entity.Permission;
-import com.managemyopz.security.entity.Role;
-import com.managemyopz.security.entity.User;
-import com.managemyopz.security.event.SecurityDomainEvent;
-import com.managemyopz.security.repository.PermissionRepository;
-import com.managemyopz.security.repository.RoleRepository;
-import com.managemyopz.security.repository.UserRepository;
+import com.managemyopz.security.entity.*;
+import com.managemyopz.security.dto.*;
+import com.managemyopz.security.repository.*;
 import com.managemyopz.security.service.JwtService;
+import com.managemyopz.security.service.SecurityPlatformService;
 import com.managemyopz.shared.dto.ApiResponse;
 import com.managemyopz.shared.entity.TenantContext;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,11 +28,133 @@ public class SecurityController {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final SecurityModuleRepository moduleRepository;
+    private final SecurityPageRepository pageRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+    private final UserPermissionRepository userPermissionRepository;
+    private final FieldPermissionRepository fieldPermissionRepository;
+    private final SecurityAuditLogRepository auditLogRepository;
+    private final SecurityPlatformService securityPlatformService;
+
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final ApplicationEventPublisher eventPublisher;
     private final com.managemyopz.security.service.UserProvisioningService userProvisioningService;
+    private final HttpServletRequest servletRequest;
 
+    private final com.managemyopz.security.service.RoleService roleService;
+    private final com.managemyopz.security.service.DataScopeService dataScopeService;
+    private final com.managemyopz.security.service.FieldSecurityService fieldSecurityService;
+
+    @GetMapping("/my-navigation")
+    public ApiResponse<Map<String, Object>> getMyNavigation(Principal principal) {
+        if (principal == null) {
+            return ApiResponse.error(401, "Not authenticated");
+        }
+        return ApiResponse.success(securityPlatformService.getNavigationForUser(principal.getName()));
+    }
+
+    @GetMapping("/modules")
+    public ApiResponse<List<SecurityModule>> listModules() {
+        return ApiResponse.success(moduleRepository.findAll());
+    }
+
+    @GetMapping("/pages")
+    public ApiResponse<List<SecurityPage>> listPages() {
+        return ApiResponse.success(pageRepository.findAll());
+    }
+
+    @GetMapping("/matrix")
+    public ApiResponse<Map<String, Object>> getPermissionMatrix() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("roles", roleRepository.findAll());
+        response.put("users", userRepository.findAll());
+        response.put("pages", pageRepository.findAll());
+        response.put("permissions", permissionRepository.findAll());
+        response.put("rolePermissions", rolePermissionRepository.findAll());
+        response.put("userPermissions", userPermissionRepository.findAll());
+        return ApiResponse.success(response);
+    }
+
+    @PostMapping("/matrix")
+    public ApiResponse<Void> updateMatrix(@RequestBody MatrixUpdateRequest req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        String ip = getClientIp(servletRequest);
+        securityPlatformService.updatePermissionMatrix(req, actor, ip);
+        return ApiResponse.success(null, "Matrix updated successfully");
+    }
+
+    @GetMapping("/field-permissions")
+    public ApiResponse<List<FieldPermission>> getFieldPermissions() {
+        return ApiResponse.success(fieldSecurityService.getAllFieldPermissions());
+    }
+
+    @PostMapping("/field-permissions")
+    public ApiResponse<FieldPermission> saveFieldPermission(@RequestBody FieldPermission req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        FieldPermission saved = fieldSecurityService.saveFieldPermission(req, actor);
+        return ApiResponse.success(saved, "Field permission saved successfully");
+    }
+
+    // Role CRUD endpoints
+    @PostMapping("/roles")
+    public ApiResponse<Role> createRole(@RequestBody CreateRoleRequest req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "ACME";
+        Role role = roleService.createCustomRole(req.getName(), req.getDescription(), req.getBaseRoleCode(), tenant, actor);
+        return ApiResponse.success(role, "Role created successfully");
+    }
+
+    @PostMapping("/roles/{id}/clone")
+    public ApiResponse<Role> cloneRole(@PathVariable UUID id, @RequestBody CloneRoleRequest req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "ACME";
+        Role role = roleService.cloneRole(id, req.getName(), req.getDescription(), tenant, actor);
+        return ApiResponse.success(role, "Role cloned successfully");
+    }
+
+    @PutMapping("/roles/{id}/archive")
+    public ApiResponse<Void> archiveRole(@PathVariable UUID id, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "ACME";
+        roleService.archiveRole(id, tenant, actor);
+        return ApiResponse.success(null, "Role archived successfully");
+    }
+
+    // Data Scope endpoints
+    @GetMapping("/data-scopes")
+    public ApiResponse<List<DataScopeRule>> listDataScopes() {
+        return ApiResponse.success(dataScopeService.getAllDataScopeRules());
+    }
+
+    @PostMapping("/data-scopes")
+    public ApiResponse<DataScopeRule> saveDataScope(@RequestBody DataScopeRule req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        DataScopeRule saved = dataScopeService.saveDataScopeRule(req, actor);
+        return ApiResponse.success(saved, "Data scope rule saved successfully");
+    }
+
+    @DeleteMapping("/data-scopes/{id}")
+    public ApiResponse<Void> deleteDataScope(@PathVariable UUID id, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        dataScopeService.deleteDataScopeRule(id, actor);
+        return ApiResponse.success(null, "Data scope rule deleted successfully");
+    }
+
+    @GetMapping("/audit")
+    public ApiResponse<List<SecurityAuditLog>> getAuditLogs() {
+        return ApiResponse.success(auditLogRepository.findAllByOrderByTimestampDesc());
+    }
+
+    @PostMapping("/templates/apply")
+    public ApiResponse<Void> applyTemplate(@RequestBody TemplateApplyRequest req, Principal principal) {
+        String actor = principal != null ? principal.getName() : "system";
+        String ip = getClientIp(servletRequest);
+        securityPlatformService.applyPermissionTemplate(req, actor, ip);
+        return ApiResponse.success(null, "Template applied successfully");
+    }
+
+    // Existing User Management & Provisioning Endpoints
     @GetMapping("/users")
     public ApiResponse<List<User>> listUsers() {
         return ApiResponse.success(userRepository.findAll());
@@ -73,75 +193,33 @@ public class SecurityController {
 
         User savedUser = userRepository.save(user);
 
-        // Audit Event
-        eventPublisher.publishEvent(new SecurityDomainEvent(
-                "USER_CREATED",
-                tenant,
-                actor,
-                savedUser.getId(),
-                "User",
-                Map.of("username", savedUser.getUsername(), "roles", savedUser.getRoles().stream().map(Role::getCode).toList())
-        ));
-
         return ApiResponse.created(savedUser, "User created successfully");
     }
 
     @PostMapping("/users/{userId}/roles")
     public ApiResponse<User> assignRole(@PathVariable UUID userId, @RequestBody RoleAssignmentRequest req, Principal principal) {
-        String actor = principal != null ? principal.getName() : "system";
-        String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "default";
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         Role role = roleRepository.findByCode(req.getRoleCode())
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
-        // Save old state for audit
-        List<String> rolesBefore = user.getRoles().stream().map(Role::getCode).toList();
-
         user.getRoles().add(role);
         User savedUser = userRepository.save(user);
-
-        // Audit Event
-        eventPublisher.publishEvent(new SecurityDomainEvent(
-                "ROLE_ASSIGNED",
-                tenant,
-                actor,
-                savedUser.getId(),
-                "User",
-                Map.of("roleCode", role.getCode(), "rolesBefore", rolesBefore, "rolesAfter", savedUser.getRoles().stream().map(Role::getCode).toList())
-        ));
 
         return ApiResponse.success(savedUser, "Role assigned successfully");
     }
 
     @DeleteMapping("/users/{userId}/roles/{roleId}")
     public ApiResponse<User> revokeRole(@PathVariable UUID userId, @PathVariable UUID roleId, Principal principal) {
-        String actor = principal != null ? principal.getName() : "system";
-        String tenant = TenantContext.getCurrentTenant() != null ? TenantContext.getCurrentTenant() : "default";
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found"));
 
-        // Save old state for audit
-        List<String> rolesBefore = user.getRoles().stream().map(Role::getCode).toList();
-
         user.getRoles().remove(role);
         User savedUser = userRepository.save(user);
-
-        // Audit Event
-        eventPublisher.publishEvent(new SecurityDomainEvent(
-                "ROLE_REVOKED",
-                tenant,
-                actor,
-                savedUser.getId(),
-                "User",
-                Map.of("roleCode", role.getCode(), "rolesBefore", rolesBefore, "rolesAfter", savedUser.getRoles().stream().map(Role::getCode).toList())
-        ));
 
         return ApiResponse.success(savedUser, "Role revoked successfully");
     }
@@ -202,6 +280,14 @@ public class SecurityController {
         return ApiResponse.success(null, "Activation email resent successfully");
     }
 
+    private String getClientIp(HttpServletRequest req) {
+        String xfHeader = req.getHeader("X-Forwarded-For");
+        if (xfHeader == null) {
+            return req.getRemoteAddr();
+        }
+        return xfHeader.split(",")[0].trim();
+    }
+
     @Data
     public static class AdminPasswordResetRequest {
         private String password;
@@ -238,5 +324,18 @@ public class SecurityController {
         private String tenantId;
         private String role;
         private String employeeId;
+    }
+
+    @Data
+    public static class CreateRoleRequest {
+        private String name;
+        private String description;
+        private String baseRoleCode;
+    }
+
+    @Data
+    public static class CloneRoleRequest {
+        private String name;
+        private String description;
     }
 }

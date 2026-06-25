@@ -35,7 +35,8 @@ export const platformApi = createApi({
   tagTypes: [
     'Employee', 'OrgDna', 'LeaveRequest', 'LeaveBalance',
     'Recognition', 'Notification', 'Workflow', 'AuditLog',
-    'Module', 'User', 'Role',
+    'Module', 'User', 'Role', 'Matrix', 'FieldPermission', 'Audit', 'DashboardLayout',
+    'Requisition', 'JobPosting', 'Candidate', 'Interview', 'Offer', 'TalentPool',
   ],
   endpoints: () => ({}), // Modules inject their own endpoints
 });

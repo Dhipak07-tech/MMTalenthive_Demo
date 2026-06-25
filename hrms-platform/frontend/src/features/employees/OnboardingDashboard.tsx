@@ -44,7 +44,7 @@ export function OnboardingDashboard() {
   ];
 
   return (
-    <div className="space-y-8 p-6 max-w-7xl mx-auto animate-fade-in">
+    <div className="space-y-8 p-6 w-full max-w-none animate-fade-in">
       
       {/* Upper Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-850 pb-6">

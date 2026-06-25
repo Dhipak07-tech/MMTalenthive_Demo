@@ -207,6 +207,18 @@ public class RecognitionController {
         return ResponseEntity.ok(ApiResponse.success(insights, "AI insights generated successfully"));
     }
 
+    @PostMapping("/health/report")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getHealthReport(@RequestBody List<UUID> employeeIds) {
+        return ResponseEntity.ok(ApiResponse.success(recognitionService.generateHealthReport(employeeIds), "Health report generated successfully"));
+    }
+
+    @PostMapping("/health/provision-wallets")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> provisionWallets(@RequestBody List<UUID> employeeIds) {
+        return ResponseEntity.ok(ApiResponse.success(recognitionService.provisionMissingWallets(employeeIds), "Missing wallets provisioned successfully"));
+    }
+
     // --- DTO Requests ---
     @Data
     public static class GiveRecognitionRequest {

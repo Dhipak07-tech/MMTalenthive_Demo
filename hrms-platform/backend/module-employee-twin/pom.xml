@@ -10,5 +10,16 @@
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-audit</artifactId></dependency>
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-module-registry</artifactId></dependency>
         <dependency><groupId>com.managemyopz</groupId><artifactId>platform-security</artifactId></dependency>
+        <dependency><groupId>com.managemyopz</groupId><artifactId>module-recognition</artifactId></dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.0</version>
+        </dependency>
     </dependencies>
 </project>

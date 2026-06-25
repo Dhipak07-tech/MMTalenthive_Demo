@@ -94,23 +94,30 @@ public class Organization extends BaseEntity {
     private boolean active = true;
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-bus")
     private List<BusinessUnit> businessUnits = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-locs")
     private List<Location> locations = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-grades")
     private List<Grade> grades = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-bands")
     private List<Band> bands = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-desigs")
     private List<Designation> designations = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-ccs")
     private List<CostCenter> costCenters = new ArrayList<>();
 
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonManagedReference("org-employment-types")
     private List<EmploymentType> employmentTypes = new ArrayList<>();
 }

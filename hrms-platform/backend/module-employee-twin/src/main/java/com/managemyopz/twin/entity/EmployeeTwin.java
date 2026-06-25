@@ -85,6 +85,24 @@ public class EmployeeTwin extends BaseEntity {
     @Column(name = "personal_phone")
     private String personalPhone;
 
+    @Column(name = "work_phone_country_code")
+    private String workPhoneCountryCode;
+
+    @Column(name = "work_phone_number")
+    private String workPhoneNumber;
+
+    @Column(name = "work_phone_full")
+    private String workPhoneFull;
+
+    @Column(name = "personal_phone_country_code")
+    private String personalPhoneCountryCode;
+
+    @Column(name = "personal_phone_number")
+    private String personalPhoneNumber;
+
+    @Column(name = "personal_phone_full")
+    private String personalPhoneFull;
+
     @Column(name = "current_address", columnDefinition = "TEXT")
     private String currentAddress;
 
@@ -171,6 +189,9 @@ public class EmployeeTwin extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private EmploymentStatus employmentStatus = EmploymentStatus.ACTIVE;
 
+    @Column(name = "archive_reason")
+    private String archiveReason;
+
     // ── Compliance (encrypted in production) ──────────────
     @Column(name = "pan_number")
     private String panNumber;
@@ -224,7 +245,7 @@ public class EmployeeTwin extends BaseEntity {
     private List<EmployeeCustomField> customFields = new ArrayList<>();
 
     public enum EmploymentStatus {
-        ACTIVE, ON_PROBATION, ON_NOTICE, ON_LEAVE, SUSPENDED, TERMINATED, RETIRED, ABSCONDED
+        ACTIVE, ON_PROBATION, ON_NOTICE, ON_LEAVE, SUSPENDED, TERMINATED, RETIRED, ABSCONDED, ARCHIVED
     }
 
     // ── Convenience Methods ──────────────────────────────

@@ -84,7 +84,7 @@ export function Login() {
       role: 'Ultra Super Admin',
       email: 'ultra.admin@managemyopz.com',
       badge: 'Platform Owner',
-      desc: 'Access global cross-tenant control panel, settings, and SaaS billing.',
+      desc: 'Access global cross-tenant control panel, analytics, and RBAC settings.',
       color: 'from-violet-600 to-fuchsia-600'
     },
     {
@@ -126,7 +126,7 @@ export function Login() {
           </div>
           <div>
             <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-              ManageMyOpz
+              ManageMyTalenthive
             </h2>
             <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Enterprise HR OS</p>
           </div>
@@ -173,7 +173,7 @@ export function Login() {
             <ShieldCheck size={14} className="text-slate-400" />
             Zero-Trust Isolation Secured
           </span>
-          <span>© 2026 ManageMyOpz Inc.</span>
+          <span>© 2026 ManageMyTalenthive Inc.</span>
         </div>
       </div>
 
@@ -186,7 +186,7 @@ export function Login() {
             <div className="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center text-white font-bold">
               M
             </div>
-            <span className="text-lg font-bold text-slate-900 dark:text-white">ManageMyOpz</span>
+            <span className="text-lg font-bold text-slate-900 dark:text-white">ManageMyTalenthive</span>
           </div>
 
           <div className="space-y-1 text-center lg:text-left">
