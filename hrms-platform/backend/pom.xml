@@ -39,6 +39,7 @@
         <module>platform-module-registry</module>
         <module>module-leave</module>
         <module>module-recognition</module>
+        <module>module-attendance</module>
         <module>app-bootstrap</module>
     </modules>
 
@@ -93,6 +94,11 @@
             <dependency>
                 <groupId>com.managemyopz</groupId>
                 <artifactId>module-recognition</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.managemyopz</groupId>
+                <artifactId>module-attendance</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <!-- JWT -->
